@@ -76,7 +76,8 @@ def fetch(url):
             return None
 
         content_type = response.headers.get(
-            "content-type", ""
+            "content-type",
+            ""
         ).lower()
 
         if "text/html" not in content_type:
@@ -93,12 +94,20 @@ def fetch(url):
 # ============================================================
 
 def extract(url, html):
-    soup = BeautifulSoup(html, "html.parser")
+
+    soup = BeautifulSoup(
+        html,
+        "html.parser"
+    )
 
     for tag in soup(
         ["script", "style", "noscript", "svg"]
     ):
         tag.decompose()
+
+    # ----------------------------
+    # TITLE
+    # ----------------------------
 
     title = ""
 
@@ -107,6 +116,10 @@ def extract(url, html):
             " ",
             strip=True
         )
+
+    # ----------------------------
+    # META DESCRIPTION
+    # ----------------------------
 
     description = ""
 
@@ -126,6 +139,10 @@ def extract(url, html):
             ""
         ).strip()
 
+    # ----------------------------
+    # CANONICAL
+    # ----------------------------
+
     canonical = ""
 
     canonical_tag = soup.find(
@@ -137,21 +154,34 @@ def extract(url, html):
     )
 
     if canonical_tag:
+
         href = canonical_tag.get(
             "href",
             ""
         ).strip()
 
         if href:
+
             canonical = urljoin(
                 url,
                 href
             )
 
+    # ----------------------------
+    # H1
+    # ----------------------------
+
     h1 = [
-        x.get_text(" ", strip=True)
+        x.get_text(
+            " ",
+            strip=True
+        )
         for x in soup.find_all("h1")
     ]
+
+    # ----------------------------
+    # ROBOTS
+    # ----------------------------
 
     robots = ""
 
@@ -166,19 +196,27 @@ def extract(url, html):
     )
 
     if robots_tag:
+
         robots = robots_tag.get(
             "content",
             ""
         ).strip()
 
+    # ----------------------------
+    # CONTENT
+    # ----------------------------
+
     main = soup.find("main")
 
     if main:
+
         content = main.get_text(
             " ",
             strip=True
         )
+
     else:
+
         content = soup.get_text(
             " ",
             strip=True
@@ -207,6 +245,7 @@ def extract(url, html):
 # ============================================================
 
 def get_sitemap_urls():
+
     discovered = set()
 
     candidates = [
@@ -217,6 +256,7 @@ def get_sitemap_urls():
     for sitemap_url in candidates:
 
         try:
+
             response = requests.get(
                 sitemap_url,
                 headers=HEADERS,
@@ -243,6 +283,7 @@ def get_sitemap_urls():
                 if value.endswith(".xml"):
 
                     try:
+
                         child = requests.get(
                             value,
                             headers=HEADERS,
@@ -330,9 +371,11 @@ def crawl():
             url = jobs[future]
 
             try:
+
                 html = future.result()
 
                 if html:
+
                     pages[url] = extract(
                         url,
                         html
@@ -347,6 +390,7 @@ def crawl():
                 completed % 25 == 0
                 or completed == len(urls)
             ):
+
                 print(
                     f"[PROGRESS] "
                     f"{completed}/{len(urls)}",
@@ -372,37 +416,59 @@ def compare(old, new):
     old_urls = set(old)
     new_urls = set(new)
 
-    for url in sorted(new_urls - old_urls):
+    # ----------------------------
+    # NEW PAGES
+    # ----------------------------
+
+    for url in sorted(
+        new_urls - old_urls
+    ):
 
         changes.append({
             "type": "new",
             "url": url,
+            "field": "Page",
             "details": "New page",
+            "priority": "medium",
         })
 
-    for url in sorted(old_urls - new_urls):
+    # ----------------------------
+    # REMOVED PAGES
+    # ----------------------------
+
+    for url in sorted(
+        old_urls - new_urls
+    ):
 
         changes.append({
             "type": "removed",
             "url": url,
+            "field": "Page",
             "details": "Page removed",
+            "priority": "high",
         })
 
+    # ----------------------------
+    # CONTENT / SEO CHANGES
+    # ----------------------------
+
     fields = [
-        ("title", "Title"),
-        ("description", "Description"),
-        ("canonical", "Canonical"),
-        ("h1", "H1"),
-        ("robots", "Robots"),
-        ("content", "Content"),
+        ("title", "Title", "high"),
+        ("description", "Description", "medium"),
+        ("canonical", "Canonical", "high"),
+        ("h1", "H1", "high"),
+        ("robots", "Robots", "high"),
+        ("content", "Content", "low"),
     ]
 
-    for url in sorted(old_urls & new_urls):
+    for url in sorted(
+        old_urls & new_urls
+    ):
 
         before = old[url]
         after = new[url]
 
-        for field, label in fields:
+        for field, label, priority in fields:
 
             if before.get(field) != after.get(field):
 
@@ -413,6 +479,7 @@ def compare(old, new):
                     "old": before.get(field, ""),
                     "new": after.get(field, ""),
                     "details": f"{label} changed",
+                    "priority": priority,
                 })
 
     return changes
@@ -434,6 +501,10 @@ def make_dashboard(
         "%Y-%m-%d %H:%M UTC"
     )
 
+    # ========================================================
+    # COUNTS
+    # ========================================================
+
     new_count = sum(
         c["type"] == "new"
         for c in changes
@@ -449,40 +520,224 @@ def make_dashboard(
         for c in changes
     )
 
+    title_count = sum(
+        c.get("field") == "Title"
+        for c in changes
+    )
+
+    h1_count = sum(
+        c.get("field") == "H1"
+        for c in changes
+    )
+
+    description_count = sum(
+        c.get("field") == "Description"
+        for c in changes
+    )
+
+    canonical_count = sum(
+        c.get("field") == "Canonical"
+        for c in changes
+    )
+
+    robots_count = sum(
+        c.get("field") == "Robots"
+        for c in changes
+    )
+
+    content_count = sum(
+        c.get("field") == "Content"
+        for c in changes
+    )
+
+    high_priority_count = sum(
+        c.get("priority") == "high"
+        for c in changes
+    )
+
+    # ========================================================
+    # ROWS
+    # ========================================================
+
     rows = []
 
     for change in changes:
 
-        old = escape(
+        change_type = escape(
+            str(change.get("type", ""))
+        )
+
+        field = escape(
+            str(change.get("field", ""))
+        )
+
+        url = escape(
+            str(change.get("url", ""))
+        )
+
+        priority = escape(
+            str(change.get("priority", ""))
+        )
+
+        old_value = escape(
             str(change.get("old", ""))
         )
 
-        new = escape(
+        new_value = escape(
             str(change.get("new", ""))
         )
 
+        details = escape(
+            str(change.get("details", ""))
+        )
+
+        # ----------------------------
+        # BADGE
+        # ----------------------------
+
+        if change_type == "new":
+
+            type_badge = (
+                '<span class="badge badge-new">'
+                'NEW'
+                '</span>'
+            )
+
+        elif change_type == "removed":
+
+            type_badge = (
+                '<span class="badge badge-removed">'
+                'REMOVED'
+                '</span>'
+            )
+
+        else:
+
+            type_badge = (
+                '<span class="badge badge-changed">'
+                'CHANGED'
+                '</span>'
+            )
+
+        # ----------------------------
+        # PRIORITY
+        # ----------------------------
+
+        if priority == "high":
+
+            priority_badge = (
+                '<span class="priority high">'
+                'HIGH'
+                '</span>'
+            )
+
+        elif priority == "medium":
+
+            priority_badge = (
+                '<span class="priority medium">'
+                'MEDIUM'
+                '</span>'
+            )
+
+        else:
+
+            priority_badge = (
+                '<span class="priority low">'
+                'LOW'
+                '</span>'
+            )
+
+        # ----------------------------
+        # OLD / NEW
+        # ----------------------------
+
+        if change_type == "changed":
+
+            details_html = f"""
+            <details>
+                <summary>View change</summary>
+
+                <div class="comparison">
+
+                    <div class="old-box">
+                        <div class="change-label">
+                            OLD
+                        </div>
+
+                        <div class="change-value">
+                            {old_value}
+                        </div>
+                    </div>
+
+                    <div class="arrow">
+                        →
+                    </div>
+
+                    <div class="new-box">
+                        <div class="change-label">
+                            NEW
+                        </div>
+
+                        <div class="change-value">
+                            {new_value}
+                        </div>
+                    </div>
+
+                </div>
+            </details>
+            """
+
+        elif change_type == "new":
+
+            details_html = """
+            <div class="simple-detail">
+                New page discovered.
+            </div>
+            """
+
+        else:
+
+            details_html = """
+            <div class="simple-detail removed-text">
+                Page is no longer available in the crawl.
+            </div>
+            """
+
         rows.append(
             f"""
-            <tr>
-                <td>{escape(change["type"])}</td>
+            <tr
+                data-type="{change_type}"
+                data-field="{field.lower()}"
+                data-priority="{priority}"
+            >
+
+                <td>
+                    {type_badge}
+                </td>
+
+                <td>
+                    {priority_badge}
+                </td>
 
                 <td>
                     <a
-                        href="{escape(change["url"])}"
+                        href="{url}"
                         target="_blank"
+                        rel="noopener"
                     >
-                        {escape(change["url"])}
+                        {url}
                     </a>
                 </td>
 
                 <td>
-                    {escape(change.get("field", ""))}
+                    <b>{field}</b>
                 </td>
 
                 <td>
-                    <div><b>Old:</b> {old}</div>
-                    <div><b>New:</b> {new}</div>
+                    {details}
+                    {details_html}
                 </td>
+
             </tr>
             """
         )
@@ -491,13 +746,23 @@ def make_dashboard(
 
         rows.append(
             """
-            <tr>
-                <td colspan="4">
-                    No changes detected.
+            <tr id="empty-row">
+
+                <td colspan="5">
+
+                    <div class="empty">
+                        No changes detected.
+                    </div>
+
                 </td>
+
             </tr>
             """
         )
+
+    # ========================================================
+    # FIRST RUN NOTICE
+    # ========================================================
 
     notice = ""
 
@@ -505,15 +770,28 @@ def make_dashboard(
 
         notice = f"""
         <div class="notice">
-            Baseline created for {len(pages)} pages.
-            Future runs will compare against this baseline.
+
+            <div class="notice-title">
+                Baseline created
+            </div>
+
+            <div>
+                {len(pages)} pages were collected.
+                Future runs will compare new data
+                against this baseline.
+            </div>
+
         </div>
         """
+
+    # ========================================================
+    # DASHBOARD HTML
+    # ========================================================
 
     html = f"""
 <!DOCTYPE html>
 
-<html>
+<html lang="en">
 
 <head>
 
@@ -528,94 +806,537 @@ def make_dashboard(
 
 <style>
 
+* {{
+    box-sizing: border-box;
+}}
+
 body {{
-    font-family: Arial, sans-serif;
+
+    font-family:
+        Arial,
+        Helvetica,
+        sans-serif;
+
     margin: 0;
-    background: #f5f7fa;
-    color: #222;
+
+    background:
+        #f4f6f8;
+
+    color:
+        #202124;
 }}
 
 .container {{
-    max-width: 1300px;
-    margin: auto;
-    padding: 30px;
+
+    max-width:
+        1500px;
+
+    margin:
+        auto;
+
+    padding:
+        30px;
 }}
 
 h1 {{
-    margin-bottom: 5px;
+
+    margin:
+        0 0 6px 0;
+
+    font-size:
+        34px;
 }}
 
 .subtitle {{
-    color: #666;
-    margin-bottom: 25px;
-}}
 
-.cards {{
-    display: grid;
-    grid-template-columns:
-        repeat(auto-fit, minmax(180px, 1fr));
-    gap: 15px;
-    margin-bottom: 25px;
-}}
+    color:
+        #6b7280;
 
-.card {{
-    background: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow:
-        0 2px 8px rgba(0,0,0,.08);
-}}
+    margin-bottom:
+        25px;
 
-.number {{
-    font-size: 30px;
-    font-weight: bold;
-    margin-top: 8px;
+    font-size:
+        15px;
 }}
 
 .notice {{
-    background: #e8f4ff;
-    padding: 15px;
-    margin-bottom: 25px;
-    border-radius: 5px;
+
+    background:
+        #e8f4ff;
+
+    border:
+        1px solid #b9ddff;
+
+    padding:
+        18px;
+
+    margin-bottom:
+        25px;
+
+    border-radius:
+        10px;
+}}
+
+.notice-title {{
+
+    font-weight:
+        bold;
+
+    font-size:
+        18px;
+
+    margin-bottom:
+        5px;
+}}
+
+.cards {{
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(190px, 1fr));
+
+    gap:
+        15px;
+
+    margin-bottom:
+        25px;
+}}
+
+.card {{
+
+    background:
+        white;
+
+    padding:
+        20px;
+
+    border-radius:
+        12px;
+
+    box-shadow:
+        0 2px 10px rgba(0,0,0,.07);
+}}
+
+.card-title {{
+
+    color:
+        #6b7280;
+
+    font-size:
+        14px;
+}}
+
+.number {{
+
+    font-size:
+        32px;
+
+    font-weight:
+        bold;
+
+    margin-top:
+        8px;
+}}
+
+.filters {{
+
+    background:
+        white;
+
+    padding:
+        20px;
+
+    border-radius:
+        12px;
+
+    box-shadow:
+        0 2px 10px rgba(0,0,0,.07);
+
+    margin-bottom:
+        20px;
+}}
+
+.filter-row {{
+
+    display:
+        flex;
+
+    flex-wrap:
+        wrap;
+
+    gap:
+        10px;
+
+    align-items:
+        center;
+}}
+
+.search {{
+
+    flex:
+        1;
+
+    min-width:
+        260px;
+
+    padding:
+        11px 14px;
+
+    border:
+        1px solid #d1d5db;
+
+    border-radius:
+        8px;
+
+    font-size:
+        14px;
+}}
+
+select {{
+
+    padding:
+        11px 14px;
+
+    border:
+        1px solid #d1d5db;
+
+    border-radius:
+        8px;
+
+    background:
+        white;
+
+    font-size:
+        14px;
 }}
 
 .table-wrap {{
-    background: white;
-    border-radius: 10px;
-    overflow-x: auto;
+
+    background:
+        white;
+
+    border-radius:
+        12px;
+
+    overflow-x:
+        auto;
+
     box-shadow:
-        0 2px 8px rgba(0,0,0,.08);
+        0 2px 10px rgba(0,0,0,.07);
 }}
 
 table {{
-    width: 100%;
-    border-collapse: collapse;
+
+    width:
+        100%;
+
+    border-collapse:
+        collapse;
+
+    min-width:
+        1100px;
 }}
 
-th, td {{
-    padding: 14px;
-    text-align: left;
-    border-bottom: 1px solid #eee;
-    vertical-align: top;
+th,
+td {{
+
+    padding:
+        15px;
+
+    text-align:
+        left;
+
+    border-bottom:
+        1px solid #edf0f2;
+
+    vertical-align:
+        top;
 }}
 
 th {{
-    background: #fafafa;
+
+    background:
+        #fafafa;
+
+    font-size:
+        13px;
+
+    color:
+        #555;
 }}
 
-a {{
-    color: #0969da;
-    text-decoration: none;
+td a {{
+
+    color:
+        #0969da;
+
+    text-decoration:
+        none;
+
+    word-break:
+        break-all;
 }}
 
-a:hover {{
-    text-decoration: underline;
+td a:hover {{
+
+    text-decoration:
+        underline;
+}}
+
+.badge,
+.priority {{
+
+    display:
+        inline-block;
+
+    padding:
+        5px 9px;
+
+    border-radius:
+        20px;
+
+    font-size:
+        11px;
+
+    font-weight:
+        bold;
+}}
+
+.badge-new {{
+
+    background:
+        #dcfce7;
+
+    color:
+        #166534;
+}}
+
+.badge-changed {{
+
+    background:
+        #fff3cd;
+
+    color:
+        #92400e;
+}}
+
+.badge-removed {{
+
+    background:
+        #fee2e2;
+
+    color:
+        #991b1b;
+}}
+
+.priority.high {{
+
+    background:
+        #fee2e2;
+
+    color:
+        #991b1b;
+}}
+
+.priority.medium {{
+
+    background:
+        #fff3cd;
+
+    color:
+        #92400e;
+}}
+
+.priority.low {{
+
+    background:
+        #e5e7eb;
+
+    color:
+        #374151;
+}}
+
+details {{
+
+    margin-top:
+        10px;
+}}
+
+summary {{
+
+    cursor:
+        pointer;
+
+    color:
+        #0969da;
+
+    font-weight:
+        600;
+}}
+
+.comparison {{
+
+    display:
+        grid;
+
+    grid-template-columns:
+        1fr 40px 1fr;
+
+    gap:
+        10px;
+
+    margin-top:
+        12px;
+
+    align-items:
+        stretch;
+}}
+
+.old-box,
+.new-box {{
+
+    padding:
+        12px;
+
+    border-radius:
+        8px;
+
+    word-break:
+        break-word;
+
+    white-space:
+        pre-wrap;
+
+    font-size:
+        13px;
+
+    max-height:
+        350px;
+
+    overflow:
+        auto;
+}}
+
+.old-box {{
+
+    background:
+        #fff1f2;
+
+    border:
+        1px solid #fecdd3;
+}}
+
+.new-box {{
+
+    background:
+        #f0fdf4;
+
+    border:
+        1px solid #bbf7d0;
+}}
+
+.change-label {{
+
+    font-size:
+        11px;
+
+    font-weight:
+        bold;
+
+    margin-bottom:
+        7px;
+}}
+
+.change-value {{
+
+    line-height:
+        1.5;
+}}
+
+.arrow {{
+
+    display:
+        flex;
+
+    align-items:
+        center;
+
+    justify-content:
+        center;
+
+    font-size:
+        24px;
+
+    color:
+        #777;
+}}
+
+.simple-detail {{
+
+    margin-top:
+        8px;
+
+    color:
+        #555;
+}}
+
+.removed-text {{
+
+    color:
+        #991b1b;
+}}
+
+.empty {{
+
+    text-align:
+        center;
+
+    padding:
+        50px;
+
+    color:
+        #6b7280;
+
+    font-size:
+        16px;
 }}
 
 .footer {{
-    margin-top: 20px;
-    color: #777;
-    font-size: 13px;
+
+    margin-top:
+        20px;
+
+    color:
+        #777;
+
+    font-size:
+        13px;
+}}
+
+@media (max-width: 700px) {{
+
+    .container {{
+        padding:
+            15px;
+    }}
+
+    h1 {{
+        font-size:
+            27px;
+    }}
+
+    .comparison {{
+        grid-template-columns:
+            1fr;
+    }}
+
+    .arrow {{
+        display:
+            none;
+    }}
+
 }}
 
 </style>
@@ -626,76 +1347,378 @@ a:hover {{
 
 <div class="container">
 
-<h1>Website Dashboard</h1>
+    <h1>
+        Website Dashboard
+    </h1>
 
-<div class="subtitle">
-Page and content overview
+    <div class="subtitle">
+        Page and content overview
+        · Last checked: {now}
+    </div>
+
+    {notice}
+
+    <!-- ================================================= -->
+    <!-- SUMMARY CARDS -->
+    <!-- ================================================= -->
+
+    <div class="cards">
+
+        <div class="card">
+            <div class="card-title">
+                Pages
+            </div>
+
+            <div class="number">
+                {len(pages)}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                New Pages
+            </div>
+
+            <div class="number">
+                {new_count}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                Changed
+            </div>
+
+            <div class="number">
+                {changed_count}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                Removed
+            </div>
+
+            <div class="number">
+                {removed_count}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                High Priority
+            </div>
+
+            <div class="number">
+                {high_priority_count}
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- CHANGE SUMMARY -->
+    <!-- ================================================= -->
+
+    <div class="cards">
+
+        <div class="card">
+            <div class="card-title">
+                Title Changes
+            </div>
+
+            <div class="number">
+                {title_count}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                H1 Changes
+            </div>
+
+            <div class="number">
+                {h1_count}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                Description Changes
+            </div>
+
+            <div class="number">
+                {description_count}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                Canonical Changes
+            </div>
+
+            <div class="number">
+                {canonical_count}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">
+                Content Changes
+            </div>
+
+            <div class="number">
+                {content_count}
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- FILTERS -->
+    <!-- ================================================= -->
+
+    <div class="filters">
+
+        <div class="filter-row">
+
+            <input
+                id="search"
+                class="search"
+                type="text"
+                placeholder="Search URL..."
+                onkeyup="filterRows()"
+            >
+
+            <select
+                id="typeFilter"
+                onchange="filterRows()"
+            >
+
+                <option value="all">
+                    All Types
+                </option>
+
+                <option value="new">
+                    New
+                </option>
+
+                <option value="changed">
+                    Changed
+                </option>
+
+                <option value="removed">
+                    Removed
+                </option>
+
+            </select>
+
+            <select
+                id="fieldFilter"
+                onchange="filterRows()"
+            >
+
+                <option value="all">
+                    All Elements
+                </option>
+
+                <option value="title">
+                    Title
+                </option>
+
+                <option value="h1">
+                    H1
+                </option>
+
+                <option value="description">
+                    Description
+                </option>
+
+                <option value="canonical">
+                    Canonical
+                </option>
+
+                <option value="robots">
+                    Robots
+                </option>
+
+                <option value="content">
+                    Content
+                </option>
+
+            </select>
+
+            <select
+                id="priorityFilter"
+                onchange="filterRows()"
+            >
+
+                <option value="all">
+                    All Priority
+                </option>
+
+                <option value="high">
+                    High
+                </option>
+
+                <option value="medium">
+                    Medium
+                </option>
+
+                <option value="low">
+                    Low
+                </option>
+
+            </select>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- TABLE -->
+    <!-- ================================================= -->
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        Type
+                    </th>
+
+                    <th>
+                        Priority
+                    </th>
+
+                    <th>
+                        Page
+                    </th>
+
+                    <th>
+                        Element
+                    </th>
+
+                    <th>
+                        Details
+                    </th>
+
+                </tr>
+
+            </thead>
+
+            <tbody id="changeTable">
+
+                {"".join(rows)}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
+    <div class="footer">
+
+        Pages scanned:
+        {len(pages)}
+        ·
+        Total detected changes:
+        {len(changes)}
+
+    </div>
+
 </div>
 
-{notice}
 
-<div class="cards">
+<script>
 
-<div class="card">
-Pages
-<div class="number">
-{len(pages)}
-</div>
-</div>
+function filterRows() {{
 
-<div class="card">
-New
-<div class="number">
-{new_count}
-</div>
-</div>
+    const search =
+        document
+            .getElementById("search")
+            .value
+            .toLowerCase();
 
-<div class="card">
-Changed
-<div class="number">
-{changed_count}
-</div>
-</div>
+    const type =
+        document
+            .getElementById("typeFilter")
+            .value;
 
-<div class="card">
-Removed
-<div class="number">
-{removed_count}
-</div>
-</div>
+    const field =
+        document
+            .getElementById("fieldFilter")
+            .value;
 
-</div>
+    const priority =
+        document
+            .getElementById("priorityFilter")
+            .value;
 
-<div class="table-wrap">
+    const rows =
+        document.querySelectorAll(
+            "#changeTable tr"
+        );
 
-<table>
+    let visible = 0;
 
-<thead>
+    rows.forEach(
+        function(row) {{
 
-<tr>
-<th>Type</th>
-<th>Page</th>
-<th>Element</th>
-<th>Details</th>
-</tr>
+            const rowType =
+                row.dataset.type || "";
 
-</thead>
+            const rowField =
+                row.dataset.field || "";
 
-<tbody>
+            const rowPriority =
+                row.dataset.priority || "";
 
-{"".join(rows)}
+            const rowText =
+                row.innerText.toLowerCase();
 
-</tbody>
+            const matchesSearch =
+                rowText.includes(search);
 
-</table>
+            const matchesType =
+                type === "all"
+                || rowType === type;
 
-</div>
+            const matchesField =
+                field === "all"
+                || rowField === field;
 
-<div class="footer">
-Last checked: {now}
-</div>
+            const matchesPriority =
+                priority === "all"
+                || rowPriority === priority;
 
-</div>
+            const show =
+                matchesSearch
+                && matchesType
+                && matchesField
+                && matchesPriority;
+
+            row.style.display =
+                show ? "" : "none";
+
+            if (show) {{
+                visible++;
+            }}
+
+        }}
+    );
+
+}}
+
+</script>
 
 </body>
 
@@ -722,6 +1745,10 @@ def main():
 
     first_run = not SNAPSHOT_FILE.exists()
 
+    # ----------------------------
+    # LOAD PREVIOUS SNAPSHOT
+    # ----------------------------
+
     if SNAPSHOT_FILE.exists():
 
         try:
@@ -738,22 +1765,41 @@ def main():
             )
 
         except Exception:
+
             old_pages = {}
 
+    # ----------------------------
+    # CRAWL
+    # ----------------------------
+
     pages = crawl()
+
+    # ----------------------------
+    # COMPARE
+    # ----------------------------
 
     changes = compare(
         old_pages,
         pages
     )
 
+    # ----------------------------
+    # SAVE SNAPSHOT
+    # ----------------------------
+
     snapshot = {
         "site": BASE_URL,
-        "checked_at": datetime.now(
-            timezone.utc
-        ).isoformat(),
-        "pages": pages,
-        "changes": changes,
+
+        "checked_at":
+            datetime.now(
+                timezone.utc
+            ).isoformat(),
+
+        "pages":
+            pages,
+
+        "changes":
+            changes,
     }
 
     SNAPSHOT_FILE.write_text(
@@ -765,14 +1811,27 @@ def main():
         encoding="utf-8"
     )
 
+    # ----------------------------
+    # CREATE DASHBOARD
+    # ----------------------------
+
     make_dashboard(
         pages,
         changes,
         first_run=first_run
     )
 
+    # ----------------------------
+    # LOGS
+    # ----------------------------
+
     print(
         f"[RESULT] {len(changes)} changes",
+        flush=True
+    )
+
+    print(
+        f"[PAGES] {len(pages)} pages",
         flush=True
     )
 
