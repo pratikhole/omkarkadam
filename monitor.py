@@ -2371,6 +2371,35 @@ def main():
     )
 
     # ========================================================
+    # DIAGNOSTIC
+    # ========================================================
+
+    print(
+        f"[DIAGNOSTIC] Baseline pages: {len(old_pages)}",
+        flush=True
+    )
+
+    print(
+        f"[DIAGNOSTIC] Current pages: {len(pages)}",
+        flush=True
+    )
+
+    print(
+        f"[DIAGNOSTIC] Detected changes: {len(changes)}",
+        flush=True
+    )
+
+    print(
+        f"[DIAGNOSTIC] Failed pages: {len(failed)}",
+        flush=True
+    )
+
+    print(
+        f"[DIAGNOSTIC] Removed pages: {len(removed)}",
+        flush=True
+    )
+
+    # ========================================================
     # SAVE SNAPSHOT
     # ========================================================
 
