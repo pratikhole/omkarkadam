@@ -17,7 +17,8 @@
 <style>
 
 * {
-    box-sizing: border-box;
+    box-sizing:
+        border-box;
 }
 
 body {
@@ -27,7 +28,8 @@ body {
         Helvetica,
         sans-serif;
 
-    margin: 0;
+    margin:
+        0;
 
     background:
         #f4f6f8;
@@ -105,13 +107,13 @@ h1 {
         grid;
 
     grid-template-columns:
-        repeat(auto-fit, minmax(190px, 1fr));
+        repeat(auto-fit, minmax(180px, 1fr));
 
     gap:
         15px;
 
     margin-bottom:
-        25px;
+        20px;
 }
 
 .card {
@@ -148,6 +150,60 @@ h1 {
 
     margin-top:
         8px;
+}
+
+.health {
+
+    background:
+        white;
+
+    padding:
+        20px;
+
+    border-radius:
+        12px;
+
+    box-shadow:
+        0 2px 10px rgba(0,0,0,.07);
+
+    margin-bottom:
+        20px;
+}
+
+.health-grid {
+
+    display:
+        grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(180px, 1fr));
+
+    gap:
+        15px;
+}
+
+.health-item {
+
+    padding:
+        10px 0;
+}
+
+.health-label {
+
+    color:
+        #777;
+
+    font-size:
+        13px;
+}
+
+.health-value {
+
+    font-weight:
+        bold;
+
+    margin-top:
+        5px;
 }
 
 .filters {
@@ -220,6 +276,21 @@ select {
 
     font-size:
         14px;
+}
+
+.section {
+
+    margin-top:
+        35px;
+
+    margin-bottom:
+        12px;
+
+    font-size:
+        22px;
+
+    font-weight:
+        bold;
 }
 
 .table-wrap {
@@ -339,6 +410,15 @@ td a:hover {
 
     color:
         #991b1b;
+}
+
+.badge-failed {
+
+    background:
+        #e5e7eb;
+
+    color:
+        #374151;
 }
 
 .priority.high {
@@ -498,6 +578,12 @@ summary {
         #991b1b;
 }
 
+.failed-text {
+
+    color:
+        #92400e;
+}
+
 .empty {
 
     text-align:
@@ -563,18 +649,20 @@ summary {
 
     <div class="subtitle">
         Page and content overview
-        · Last checked: 2026-09-08 05:49 UTC
+        · Last checked: 2026-09-08 06:46 UTC
     </div>
 
     
 
+
     <!-- ================================================= -->
-    <!-- SUMMARY CARDS -->
+    <!-- OVERVIEW -->
     <!-- ================================================= -->
 
     <div class="cards">
 
         <div class="card">
+
             <div class="card-title">
                 Pages
             </div>
@@ -582,9 +670,11 @@ summary {
             <div class="number">
                 3802
             </div>
+
         </div>
 
         <div class="card">
+
             <div class="card-title">
                 New Pages
             </div>
@@ -592,9 +682,11 @@ summary {
             <div class="number">
                 0
             </div>
+
         </div>
 
         <div class="card">
+
             <div class="card-title">
                 Changed
             </div>
@@ -602,9 +694,11 @@ summary {
             <div class="number">
                 0
             </div>
+
         </div>
 
         <div class="card">
+
             <div class="card-title">
                 Removed
             </div>
@@ -612,9 +706,11 @@ summary {
             <div class="number">
                 0
             </div>
+
         </div>
 
         <div class="card">
+
             <div class="card-title">
                 High Priority
             </div>
@@ -622,18 +718,20 @@ summary {
             <div class="number">
                 0
             </div>
+
         </div>
 
     </div>
 
 
     <!-- ================================================= -->
-    <!-- CHANGE SUMMARY -->
+    <!-- SEO CHANGES -->
     <!-- ================================================= -->
 
     <div class="cards">
 
         <div class="card">
+
             <div class="card-title">
                 Title Changes
             </div>
@@ -641,9 +739,11 @@ summary {
             <div class="number">
                 0
             </div>
+
         </div>
 
         <div class="card">
+
             <div class="card-title">
                 H1 Changes
             </div>
@@ -651,9 +751,11 @@ summary {
             <div class="number">
                 0
             </div>
+
         </div>
 
         <div class="card">
+
             <div class="card-title">
                 Description Changes
             </div>
@@ -661,9 +763,11 @@ summary {
             <div class="number">
                 0
             </div>
+
         </div>
 
         <div class="card">
+
             <div class="card-title">
                 Canonical Changes
             </div>
@@ -671,9 +775,23 @@ summary {
             <div class="number">
                 0
             </div>
+
         </div>
 
         <div class="card">
+
+            <div class="card-title">
+                Robots Changes
+            </div>
+
+            <div class="number">
+                0
+            </div>
+
+        </div>
+
+        <div class="card">
+
             <div class="card-title">
                 Content Changes
             </div>
@@ -681,6 +799,68 @@ summary {
             <div class="number">
                 0
             </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================================================= -->
+    <!-- CRAWL HEALTH -->
+    <!-- ================================================= -->
+
+    <div class="health">
+
+        <div class="health-grid">
+
+            <div class="health-item">
+
+                <div class="health-label">
+                    Crawl Status
+                </div>
+
+                <div class="health-value">
+                    ✓ Successful
+                </div>
+
+            </div>
+
+            <div class="health-item">
+
+                <div class="health-label">
+                    Pages Scanned
+                </div>
+
+                <div class="health-value">
+                    3802
+                </div>
+
+            </div>
+
+            <div class="health-item">
+
+                <div class="health-label">
+                    Failed
+                </div>
+
+                <div class="health-value">
+                    0
+                </div>
+
+            </div>
+
+            <div class="health-item">
+
+                <div class="health-label">
+                    Crawl Duration
+                </div>
+
+                <div class="health-value">
+                    323.05 seconds
+                </div>
+
+            </div>
+
         </div>
 
     </div>
@@ -723,6 +903,10 @@ summary {
                     Removed
                 </option>
 
+                <option value="failed">
+                    Failed
+                </option>
+
             </select>
 
             <select
@@ -758,6 +942,10 @@ summary {
                     Content
                 </option>
 
+                <option value="crawl">
+                    Crawl
+                </option>
+
             </select>
 
             <select
@@ -789,8 +977,12 @@ summary {
 
 
     <!-- ================================================= -->
-    <!-- TABLE -->
+    <!-- CURRENT CHANGES -->
     <!-- ================================================= -->
+
+    <div class="section">
+        Current Changes
+    </div>
 
     <div class="table-wrap">
 
@@ -847,13 +1039,111 @@ summary {
     </div>
 
 
+    <!-- ================================================= -->
+    <!-- HISTORY -->
+    <!-- ================================================= -->
+
+    <div class="section">
+        Change History
+    </div>
+
+    <div class="table-wrap">
+
+        <table>
+
+            <thead>
+
+                <tr>
+
+                    <th>
+                        Date
+                    </th>
+
+                    <th>
+                        Pages
+                    </th>
+
+                    <th>
+                        New
+                    </th>
+
+                    <th>
+                        Changed
+                    </th>
+
+                    <th>
+                        Removed
+                    </th>
+
+                    <th>
+                        Failed
+                    </th>
+
+                    <th>
+                        Duration
+                    </th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+                
+            <tr>
+
+                <td>
+                    2026-09-08
+                </td>
+
+                <td>
+                    3802
+                </td>
+
+                <td>
+                    0
+                </td>
+
+                <td>
+                    0
+                </td>
+
+                <td>
+                    0
+                </td>
+
+                <td>
+                    0
+                </td>
+
+                <td>
+                    323.05 sec
+                </td>
+
+            </tr>
+            
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+
     <div class="footer">
 
         Pages scanned:
         3802
+
         ·
+
         Total detected changes:
         0
+
+        ·
+
+        History records:
+        1
 
     </div>
 
@@ -889,8 +1179,6 @@ function filterRows() {
         document.querySelectorAll(
             "#changeTable tr"
         );
-
-    let visible = 0;
 
     rows.forEach(
         function(row) {
@@ -930,10 +1218,6 @@ function filterRows() {
 
             row.style.display =
                 show ? "" : "none";
-
-            if (show) {
-                visible++;
-            }
 
         }
     );
