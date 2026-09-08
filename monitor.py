@@ -1,6 +1,7 @@
 import json
 import re
 import time
+import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from html import escape
@@ -104,7 +105,6 @@ def fetch(url):
                 "http_status": status,
             }
 
-        # Real page-not-found response
         if status in (404, 410):
 
             return {
@@ -113,7 +113,6 @@ def fetch(url):
                 "http_status": status,
             }
 
-        # Temporary/server/rate-limit problems
         return {
             "status": "failed",
             "html": "",
@@ -325,10 +324,6 @@ def get_sitemap_urls():
                     strip=True
                 )
 
-                # ------------------------------------------------
-                # Sitemap index
-                # ------------------------------------------------
-
                 if value.endswith(".xml"):
 
                     try:
@@ -398,12 +393,6 @@ def crawl(old_pages):
 
         sitemap_urls.add(homepage)
 
-    # --------------------------------------------------------
-    # SAFETY:
-    # If sitemap fails completely, use old URLs instead of
-    # treating every existing page as removed.
-    # --------------------------------------------------------
-
     if not sitemap_ok and old_pages:
 
         urls = set(old_pages.keys())
@@ -418,8 +407,6 @@ def crawl(old_pages):
 
         urls = set(sitemap_urls)
 
-        # Existing URLs are also checked so that a page removed
-        # from sitemap can be detected as removed.
         urls.update(old_pages.keys())
 
     urls = sorted(urls)[:MAX_PAGES]
@@ -561,8 +548,6 @@ def compare(old, new, failed, removed):
     # REMOVED PAGES
     # --------------------------------------------------------
 
-    # Only mark pages as removed if we actually received
-    # a 404/410 response.
     for url in sorted(
         (old_urls - new_urls) & removed
     ):
@@ -632,6 +617,244 @@ def compare(old, new, failed, removed):
                 })
 
     return changes
+
+
+# ============================================================
+# DIAGNOSTIC
+# ============================================================
+
+def run_diagnostic(old_pages, pages):
+
+    print(
+        "",
+        flush=True
+    )
+
+    print(
+        "========================================================",
+        flush=True
+    )
+
+    print(
+        "[DIAGNOSTIC] STARTING SECOND-FETCH TEST",
+        flush=True
+    )
+
+    print(
+        "========================================================",
+        flush=True
+    )
+
+    common_urls = list(
+        set(old_pages.keys()) & set(pages.keys())
+    )
+
+    if not common_urls:
+
+        print(
+            "[DIAGNOSTIC] No common pages available.",
+            flush=True
+        )
+
+        return
+
+    random.seed(42)
+
+    sample_size = min(
+        10,
+        len(common_urls)
+    )
+
+    sample_urls = random.sample(
+        common_urls,
+        sample_size
+    )
+
+    fields = [
+        "title",
+        "description",
+        "canonical",
+        "h1",
+        "robots",
+        "content",
+    ]
+
+    different_pages = 0
+
+    for index, url in enumerate(
+        sample_urls,
+        start=1
+    ):
+
+        print(
+            "",
+            flush=True
+        )
+
+        print(
+            f"[DIAGNOSTIC] PAGE {index}/{sample_size}",
+            flush=True
+        )
+
+        print(
+            f"[DIAGNOSTIC] URL: {url}",
+            flush=True
+        )
+
+        result = fetch(url)
+
+        if result["status"] != "success":
+
+            print(
+                "[DIAGNOSTIC] SECOND FETCH FAILED "
+                f"HTTP={result.get('http_status')}",
+                flush=True
+            )
+
+            continue
+
+        second = extract(
+            url,
+            result["html"]
+        )
+
+        first = pages[url]
+        baseline = old_pages[url]
+
+        crawl_difference = []
+
+        baseline_difference = []
+
+        for field in fields:
+
+            if first.get(field) != second.get(field):
+
+                crawl_difference.append(field)
+
+            if baseline.get(field) != first.get(field):
+
+                baseline_difference.append(field)
+
+        if crawl_difference:
+
+            different_pages += 1
+
+            print(
+                "[DIAGNOSTIC] ⚠ CURRENT FETCH CHANGED",
+                flush=True
+            )
+
+            print(
+                "[DIAGNOSTIC] Fields different "
+                f"between first and second fetch: "
+                f"{crawl_difference}",
+                flush=True
+            )
+
+        else:
+
+            print(
+                "[DIAGNOSTIC] ✓ First and second fetch "
+                "are identical",
+                flush=True
+            )
+
+        if baseline_difference:
+
+            print(
+                "[DIAGNOSTIC] Baseline differences found: "
+                f"{baseline_difference}",
+                flush=True
+            )
+
+            for field in baseline_difference:
+
+                old_value = baseline.get(
+                    field,
+                    ""
+                )
+
+                current_value = first.get(
+                    field,
+                    ""
+                )
+
+                if field == "content":
+
+                    print(
+                        "[DIAGNOSTIC] CONTENT LENGTH: "
+                        f"{len(old_value)} -> "
+                        f"{len(current_value)}",
+                        flush=True
+                    )
+
+                elif field == "h1":
+
+                    print(
+                        "[DIAGNOSTIC] H1:",
+                        flush=True
+                    )
+
+                    print(
+                        f"    OLD: {old_value}",
+                        flush=True
+                    )
+
+                    print(
+                        f"    NEW: {current_value}",
+                        flush=True
+                    )
+
+                else:
+
+                    print(
+                        f"[DIAGNOSTIC] {field.upper()}:",
+                        flush=True
+                    )
+
+                    print(
+                        f"    OLD: {old_value}",
+                        flush=True
+                    )
+
+                    print(
+                        f"    NEW: {current_value}",
+                        flush=True
+                    )
+
+        else:
+
+            print(
+                "[DIAGNOSTIC] No difference between "
+                "baseline and current crawl",
+                flush=True
+            )
+
+    print(
+        "",
+        flush=True
+    )
+
+    print(
+        "========================================================",
+        flush=True
+    )
+
+    print(
+        "[DIAGNOSTIC] SECOND-FETCH TEST COMPLETE",
+        flush=True
+    )
+
+    print(
+        f"[DIAGNOSTIC] Pages with unstable responses: "
+        f"{different_pages}/{sample_size}",
+        flush=True
+    )
+
+    print(
+        "========================================================",
+        flush=True
+    )
 
 
 # ============================================================
@@ -715,7 +938,6 @@ def save_history(
 
     })
 
-    # Keep last 365 crawl records
     history = history[-365:]
 
     HISTORY_FILE.write_text(
@@ -748,10 +970,6 @@ def make_dashboard(
     ).strftime(
         "%Y-%m-%d %H:%M UTC"
     )
-
-    # ========================================================
-    # COUNTS
-    # ========================================================
 
     new_count = sum(
         c["type"] == "new"
@@ -803,10 +1021,6 @@ def make_dashboard(
         for c in changes
     )
 
-    # ========================================================
-    # ROWS
-    # ========================================================
-
     rows = []
 
     for change in changes:
@@ -838,10 +1052,6 @@ def make_dashboard(
         details = escape(
             str(change.get("details", ""))
         )
-
-        # ----------------------------------------------------
-        # TYPE BADGE
-        # ----------------------------------------------------
 
         if change_type == "new":
 
@@ -875,10 +1085,6 @@ def make_dashboard(
                 '</span>'
             )
 
-        # ----------------------------------------------------
-        # PRIORITY
-        # ----------------------------------------------------
-
         if priority == "high":
 
             priority_badge = (
@@ -903,15 +1109,10 @@ def make_dashboard(
                 '</span>'
             )
 
-        # ----------------------------------------------------
-        # DETAILS
-        # ----------------------------------------------------
-
         if change_type == "changed":
 
             details_html = f"""
             <details>
-
                 <summary>
                     View old → new
                 </summary>
@@ -919,7 +1120,6 @@ def make_dashboard(
                 <div class="comparison">
 
                     <div class="old-box">
-
                         <div class="change-label">
                             OLD
                         </div>
@@ -927,7 +1127,6 @@ def make_dashboard(
                         <div class="change-value">
                             {old_value}
                         </div>
-
                     </div>
 
                     <div class="arrow">
@@ -935,7 +1134,6 @@ def make_dashboard(
                     </div>
 
                     <div class="new-box">
-
                         <div class="change-label">
                             NEW
                         </div>
@@ -943,7 +1141,6 @@ def make_dashboard(
                         <div class="change-value">
                             {new_value}
                         </div>
-
                     </div>
 
                 </div>
@@ -1033,10 +1230,6 @@ def make_dashboard(
             """
         )
 
-    # ========================================================
-    # NOTICE
-    # ========================================================
-
     notice = ""
 
     if first_run:
@@ -1055,10 +1248,6 @@ def make_dashboard(
 
         </div>
         """
-
-    # ========================================================
-    # HISTORY ROWS
-    # ========================================================
 
     history_rows = []
 
@@ -1099,10 +1288,6 @@ def make_dashboard(
             </tr>
             """
         )
-
-    # ========================================================
-    # DASHBOARD
-    # ========================================================
 
     html = f"""
 <!DOCTYPE html>
@@ -1760,11 +1945,6 @@ summary {{
 
     {notice}
 
-
-    <!-- ================================================= -->
-    <!-- OVERVIEW -->
-    <!-- ================================================= -->
-
     <div class="cards">
 
         <div class="card">
@@ -1828,11 +2008,6 @@ summary {{
         </div>
 
     </div>
-
-
-    <!-- ================================================= -->
-    <!-- SEO CHANGES -->
-    <!-- ================================================= -->
 
     <div class="cards">
 
@@ -1910,11 +2085,6 @@ summary {{
 
     </div>
 
-
-    <!-- ================================================= -->
-    <!-- CRAWL HEALTH -->
-    <!-- ================================================= -->
-
     <div class="health">
 
         <div class="health-grid">
@@ -1970,11 +2140,6 @@ summary {{
         </div>
 
     </div>
-
-
-    <!-- ================================================= -->
-    <!-- FILTERS -->
-    <!-- ================================================= -->
 
     <div class="filters">
 
@@ -2081,11 +2246,6 @@ summary {{
 
     </div>
 
-
-    <!-- ================================================= -->
-    <!-- CURRENT CHANGES -->
-    <!-- ================================================= -->
-
     <div class="section">
         Current Changes
     </div>
@@ -2131,11 +2291,6 @@ summary {{
         </table>
 
     </div>
-
-
-    <!-- ================================================= -->
-    <!-- HISTORY -->
-    <!-- ================================================= -->
 
     <div class="section">
         Change History
@@ -2191,7 +2346,6 @@ summary {{
 
     </div>
 
-
     <div class="footer">
 
         Pages scanned:
@@ -2210,7 +2364,6 @@ summary {{
     </div>
 
 </div>
-
 
 <script>
 
@@ -2397,6 +2550,15 @@ def main():
     print(
         f"[DIAGNOSTIC] Removed pages: {len(removed)}",
         flush=True
+    )
+
+    # ========================================================
+    # SECOND FETCH DIAGNOSTIC
+    # ========================================================
+
+    run_diagnostic(
+        old_pages,
+        pages
     )
 
     # ========================================================
