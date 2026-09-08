@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import time
@@ -10,1933 +11,437 @@ from urllib.parse import urljoin, urlparse
 import requests
 from bs4 import BeautifulSoup
 
-
-# ============================================================
-# CONFIG
-# ============================================================
-
 BASE_URL = "https://www.excelr.com"
-
 MAX_PAGES = 5000
 MAX_WORKERS = 8
 TIMEOUT = 20
+MAX_DASHBOARD_ROWS = 1000
 
 DATA_DIR = Path("data")
-
 SNAPSHOT_FILE = DATA_DIR / "snapshot.json"
 HISTORY_FILE = DATA_DIR / "history.json"
 DASHBOARD_FILE = Path("dashboard.html")
 
 HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (compatible; WebsiteAudit/1.0; "
-        "+https://github.com/)"
-    ),
-    "Accept": (
-        "text/html,application/xhtml+xml,"
-        "application/xml;q=0.9,*/*;q=0.8"
-    ),
+    "User-Agent": "Mozilla/5.0 (compatible; WebsiteAudit/1.0; +https://github.com/)",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
 }
 
-
-# ============================================================
-# URL HELPERS
-# ============================================================
+FIELDS = [
+    ("title", "Title", "high"),
+    ("description", "Description", "medium"),
+    ("canonical", "Canonical", "high"),
+    ("h1", "H1", "high"),
+    ("robots", "Robots", "high"),
+    ("content", "Content", "low"),
+    ("images", "Images", "medium"),
+    ("internal_links", "Internal Links", "medium"),
+    ("schema", "Schema", "high"),
+]
 
 def clean_url(url):
-
     try:
-
-        parsed = urlparse(url)
-
-        if parsed.scheme not in ("http", "https"):
+        p = urlparse(url)
+        if p.scheme not in ("http", "https"):
             return None
-
-        base_host = urlparse(BASE_URL).netloc.lower()
-
-        if parsed.netloc.lower() != base_host:
+        if p.netloc.lower() != urlparse(BASE_URL).netloc.lower():
             return None
-
-        path = parsed.path or "/"
-
-        ignored_extensions = (
-            ".jpg", ".jpeg", ".png", ".gif", ".webp",
-            ".svg", ".ico", ".pdf", ".zip", ".mp4",
-            ".mp3", ".webm", ".css", ".js", ".xml",
-            ".json", ".woff", ".woff2", ".ttf"
-        )
-
-        if path.lower().endswith(ignored_extensions):
+        path = p.path or "/"
+        bad = (".jpg",".jpeg",".png",".gif",".webp",".svg",".ico",".pdf",".zip",
+               ".mp4",".mp3",".webm",".css",".js",".xml",".json",".woff",".woff2",
+               ".ttf",".eot")
+        if path.lower().endswith(bad):
             return None
-
-        clean = (
-            f"{parsed.scheme}://"
-            f"{parsed.netloc}"
-            f"{path}"
-        )
-
-        if path != "/" and clean.endswith("/"):
-            clean = clean[:-1]
-
-        return clean
-
+        out = f"{p.scheme}://{p.netloc}{path}"
+        if path != "/" and out.endswith("/"):
+            out = out[:-1]
+        return out
     except Exception:
-
         return None
 
+def normalize_text(x):
+    return re.sub(r"\s+", " ", str(x or "")).strip()
 
-# ============================================================
-# FETCH
-# ============================================================
+def stable_hash(value):
+    if not isinstance(value, str):
+        value = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(value.encode("utf-8", errors="ignore")).hexdigest()
 
 def fetch(url):
-
     try:
-
-        response = requests.get(
-            url,
-            headers=HEADERS,
-            timeout=TIMEOUT,
-            allow_redirects=True,
-        )
-
-        status = response.status_code
-
-        content_type = response.headers.get(
-            "content-type",
-            ""
-        ).lower()
-
-        if (
-            status == 200
-            and "text/html" in content_type
-        ):
-
-            return {
-                "status": "success",
-                "html": response.text,
-                "http_status": status,
-            }
-
-        if status in (404, 410):
-
-            return {
-                "status": "removed",
-                "html": "",
-                "http_status": status,
-            }
-
-        return {
-            "status": "failed",
-            "html": "",
-            "http_status": status,
-        }
-
-    except requests.RequestException:
-
-        return {
-            "status": "failed",
-            "html": "",
-            "http_status": None,
-        }
-
-
-# ============================================================
-# EXTRACT
-# ============================================================
+        r = requests.get(url, headers=HEADERS, timeout=TIMEOUT, allow_redirects=True)
+        ct = r.headers.get("content-type", "").lower()
+        if r.status_code == 200 and "text/html" in ct:
+            return {"status": "success", "html": r.text, "http_status": 200}
+        if r.status_code in (404, 410):
+            return {"status": "removed", "html": "", "http_status": r.status_code}
+        return {"status": "failed", "html": "", "http_status": r.status_code}
+    except requests.RequestException as e:
+        return {"status": "failed", "html": "", "http_status": None, "error": str(e)}
 
 def extract(url, html):
+    soup = BeautifulSoup(html, "html.parser")
 
-    soup = BeautifulSoup(
-        html,
-        "html.parser"
-    )
+    title = soup.title.get_text(" ", strip=True) if soup.title else ""
 
-    # --------------------------------------------------------
-    # TITLE
-    # --------------------------------------------------------
+    tag = soup.find("meta", attrs={"name": re.compile("^description$", re.I)})
+    description = (tag.get("content", "") if tag else "").strip()
 
-    title = ""
+    tag = soup.find("link", attrs={"rel": lambda v: v and "canonical" in v})
+    canonical = (tag.get("href", "") if tag else "").strip()
 
-    if soup.title:
+    h1 = " | ".join(x.get_text(" ", strip=True) for x in soup.find_all("h1"))
 
-        title = soup.title.get_text(
-            " ",
-            strip=True
-        )
-
-    # --------------------------------------------------------
-    # DESCRIPTION
-    # --------------------------------------------------------
-
-    description = ""
-
-    description_tag = soup.find(
-        "meta",
-        attrs={
-            "name": re.compile(
-                "^description$",
-                re.I
-            )
-        }
-    )
-
-    if description_tag:
-
-        description = description_tag.get(
-            "content",
-            ""
-        ).strip()
-
-    # --------------------------------------------------------
-    # CANONICAL
-    # --------------------------------------------------------
-
-    canonical = ""
-
-    canonical_tag = soup.find(
-        "link",
-        attrs={
-            "rel": lambda value:
-                value and "canonical" in value
-        }
-    )
-
-    if canonical_tag:
-
-        canonical = canonical_tag.get(
-            "href",
-            ""
-        ).strip()
-
-    # --------------------------------------------------------
-    # H1
-    # --------------------------------------------------------
-
-    h1_tags = soup.find_all("h1")
-
-    h1 = " | ".join(
-        tag.get_text(
-            " ",
-            strip=True
-        )
-        for tag in h1_tags
-    )
-
-    # --------------------------------------------------------
-    # ROBOTS
-    # --------------------------------------------------------
-
-    robots = ""
-
-    robots_tag = soup.find(
-        "meta",
-        attrs={
-            "name": re.compile(
-                "^robots$",
-                re.I
-            )
-        }
-    )
-
-    if robots_tag:
-
-        robots = robots_tag.get(
-            "content",
-            ""
-        ).strip()
-
-    # --------------------------------------------------------
-    # IMAGES
-    # --------------------------------------------------------
+    tag = soup.find("meta", attrs={"name": re.compile("^robots$", re.I)})
+    robots = (tag.get("content", "") if tag else "").strip()
 
     images = []
-
     for img in soup.find_all("img"):
-
-        src = (
-            img.get("src")
-            or img.get("data-src")
-            or ""
-        ).strip()
-
-        alt = img.get(
-            "alt",
-            ""
-        ).strip()
-
+        src = (img.get("src") or img.get("data-src") or img.get("data-lazy-src") or "").strip()
         if src:
+            images.append({"src": src, "alt": (img.get("alt") or "").strip()})
+    images.sort(key=lambda x: (x["src"], x["alt"]))
 
-            images.append({
-                "src": src,
-                "alt": alt,
-            })
-
-    images = sorted(
-        images,
-        key=lambda x: (
-            x.get("src", ""),
-            x.get("alt", "")
-        )
-    )
-
-    # --------------------------------------------------------
-    # INTERNAL LINKS
-    # --------------------------------------------------------
-
-    internal_links = set()
-
+    links = set()
     for a in soup.find_all("a", href=True):
-
-        href = a.get("href", "").strip()
-
-        absolute = urljoin(
-            url,
-            href
-        )
-
-        cleaned = clean_url(
-            absolute
-        )
-
-        if cleaned:
-
-            internal_links.add(
-                cleaned
-            )
-
-    internal_links = sorted(
-        internal_links
-    )
-
-    # --------------------------------------------------------
-    # JSON-LD / SCHEMA
-    # --------------------------------------------------------
+        u = clean_url(urljoin(url, a.get("href", "").strip()))
+        if u:
+            links.add(u)
+    links = sorted(links)
 
     schemas = []
-
-    for script in soup.find_all(
-        "script",
-        attrs={
-            "type": re.compile(
-                r"application/ld\+json",
-                re.I
-            )
-        }
-    ):
-
-        raw = script.string or script.get_text()
-
-        raw = raw.strip()
-
+    for script in soup.find_all("script", attrs={"type": re.compile(r"application/ld\+json", re.I)}):
+        raw = (script.string or script.get_text() or "").strip()
         if raw:
-
             try:
-
-                parsed = json.loads(raw)
-
-                schemas.append(
-                    parsed
-                )
-
+                schemas.append(json.loads(raw))
             except Exception:
+                schemas.append(raw)
 
-                schemas.append(
-                    raw
-                )
+    text_soup = BeautifulSoup(html, "html.parser")
+    for t in text_soup(["script", "style", "noscript", "svg"]):
+        t.decompose()
+    main = text_soup.find("main")
+    content = main.get_text(" ", strip=True) if main else text_soup.get_text(" ", strip=True)
+    content = normalize_text(content)
 
-    # --------------------------------------------------------
-    # MAIN CONTENT
-    # --------------------------------------------------------
-
-    content_soup = BeautifulSoup(
-        html,
-        "html.parser"
-    )
-
-    for tag in content_soup(
-        ["script", "style", "noscript", "svg"]
-    ):
-
-        tag.decompose()
-
-    main = content_soup.find("main")
-
-    if main:
-
-        content = main.get_text(
-            " ",
-            strip=True
-        )
-
-    else:
-
-        content = content_soup.get_text(
-            " ",
-            strip=True
-        )
-
-    content = re.sub(
-        r"\s+",
-        " ",
-        content
-    ).strip()
-
-    return {
-
-        "url": url,
-
-        "title": title,
-
-        "description": description,
-
-        "canonical": canonical,
-
-        "h1": h1,
-
-        "robots": robots,
-
+    values = {
+        "title": normalize_text(title),
+        "description": normalize_text(description),
+        "canonical": normalize_text(canonical),
+        "h1": normalize_text(h1),
+        "robots": normalize_text(robots),
         "content": content,
-
-        "content_length": len(content),
-
         "images": images,
-
-        "internal_links": internal_links,
-
+        "internal_links": links,
         "schema": schemas,
     }
 
-
-# ============================================================
-# SITEMAP
-# ============================================================
+    page = {
+        "url": url,
+        "fingerprints": {k: stable_hash(v) for k, v in values.items()},
+        "content_length": len(content),
+    }
+    return page, links
 
 def get_sitemap_urls():
-
-    discovered = set()
-
-    sitemap_success = False
-
-    candidates = [
-        f"{BASE_URL}/sitemap.xml",
-        f"{BASE_URL}/sitemap_index.xml",
-    ]
-
-    for sitemap_url in candidates:
-
-        print(
-            f"[SITEMAP] Checking {sitemap_url}",
-            flush=True
-        )
-
+    found = set()
+    for sitemap_url in (f"{BASE_URL}/sitemap.xml", f"{BASE_URL}/sitemap_index.xml"):
+        print(f"[SITEMAP] Checking {sitemap_url}", flush=True)
         try:
-
-            response = requests.get(
-                sitemap_url,
-                headers=HEADERS,
-                timeout=TIMEOUT,
-            )
-
-            if response.status_code != 200:
+            r = requests.get(sitemap_url, headers=HEADERS, timeout=TIMEOUT)
+            if r.status_code != 200:
                 continue
-
-            sitemap_success = True
-
-            soup = BeautifulSoup(
-                response.text,
-                "xml"
-            )
-
-            for loc in soup.find_all("loc"):
-
-                value = loc.get_text(
-                    strip=True
-                )
-
-                if value.lower().endswith(".xml"):
-
+            soup = BeautifulSoup(r.text, "xml")
+            locs = [x.get_text(strip=True) for x in soup.find_all("loc")]
+            for loc in locs:
+                if loc.lower().endswith(".xml"):
                     try:
-
-                        child = requests.get(
-                            value,
-                            headers=HEADERS,
-                            timeout=TIMEOUT,
-                        )
-
+                        child = requests.get(loc, headers=HEADERS, timeout=TIMEOUT)
                         if child.status_code != 200:
                             continue
-
-                        child_soup = BeautifulSoup(
-                            child.text,
-                            "xml"
-                        )
-
-                        for item in child_soup.find_all("loc"):
-
-                            page = clean_url(
-                                item.get_text(
-                                    strip=True
-                                )
-                            )
-
-                            if page:
-                                discovered.add(page)
-
+                        child_soup = BeautifulSoup(child.text, "xml")
+                        locs2 = [x.get_text(strip=True) for x in child_soup.find_all("loc")]
+                        for item in locs2:
+                            u = clean_url(item)
+                            if u:
+                                found.add(u)
                     except requests.RequestException:
-                        continue
-
+                        pass
                 else:
+                    u = clean_url(loc)
+                    if u:
+                        found.add(u)
+            if found:
+                print(f"[SITEMAP] {len(found)} HTML URLs found", flush=True)
+                return found
+        except requests.RequestException as e:
+            print(f"[SITEMAP ERROR] {e}", flush=True)
+    return found
 
-                    page = clean_url(
-                        value
-                    )
-
-                    if page:
-                        discovered.add(page)
-
-            if discovered:
-
-                print(
-                    f"[SITEMAP] "
-                    f"{len(discovered)} HTML URLs found",
-                    flush=True
-                )
-
-                return (
-                    discovered,
-                    sitemap_success
-                )
-
-        except requests.RequestException as error:
-
-            print(
-                f"[SITEMAP ERROR] {error}",
-                flush=True
-            )
-
-    print(
-        "[SITEMAP] No usable sitemap found",
-        flush=True
-    )
-
-    return (
-        discovered,
-        sitemap_success
-    )
-
-
-# ============================================================
-# CRAWL
-# ============================================================
+def load_snapshot():
+    if not SNAPSHOT_FILE.exists():
+        return {}
+    try:
+        raw = json.loads(SNAPSHOT_FILE.read_text(encoding="utf-8"))
+        pages = raw.get("pages", {}) if isinstance(raw, dict) else {}
+        out = {}
+        for url, data in pages.items():
+            if isinstance(data, dict) and isinstance(data.get("fingerprints"), dict):
+                out[url] = data
+            elif isinstance(data, dict):
+                # One-time migration from the old full-content snapshot.
+                vals = {k: data.get(k) for k, _, _ in FIELDS if k in data}
+                out[url] = {
+                    "url": url,
+                    "fingerprints": {k: stable_hash(v) for k, v in vals.items()},
+                    "content_length": data.get("content_length", len(data.get("content", "") or "")),
+                }
+        return out
+    except Exception as e:
+        print(f"[WARNING] Snapshot read failed: {e}", flush=True)
+        return {}
 
 def crawl(old_pages):
+    started = time.time()
+    sitemap = get_sitemap_urls()
+    home = clean_url(BASE_URL)
+    if home:
+        sitemap.add(home)
 
-    start_time = time.time()
+    urls = set(sitemap)
+    urls.update(old_pages.keys())
+    urls = sorted(u for u in urls if u)[:MAX_PAGES]
 
-    sitemap_urls, sitemap_ok = (
-        get_sitemap_urls()
-    )
+    print(f"[START] {len(urls)} pages", flush=True)
 
-    homepage = clean_url(
-        BASE_URL
-    )
+    pages, failed, removed, discovered = {}, {}, set(), set()
 
-    if homepage:
-        sitemap_urls.add(homepage)
+    def run_batch(batch, label):
+        with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
+            futures = {ex.submit(fetch, u): u for u in batch}
+            done = 0
+            for future in as_completed(futures):
+                url = futures[future]
+                try:
+                    result = future.result()
+                    if result["status"] == "success":
+                        page, links = extract(url, result["html"])
+                        pages[url] = page
+                        discovered.update(links)
+                    elif result["status"] == "removed":
+                        removed.add(url)
+                    else:
+                        failed[url] = {"http_status": result.get("http_status")}
+                except Exception as e:
+                    failed[url] = {"http_status": None, "error": str(e)}
+                done += 1
+                if done % 25 == 0 or done == len(batch):
+                    print(f"[{label}] {done}/{len(batch)}", flush=True)
 
-    if not sitemap_ok and old_pages:
+    run_batch(urls, "PROGRESS")
 
-        urls = set(
-            old_pages.keys()
-        )
+    additional = discovered - set(pages) - set(failed) - removed
+    additional = sorted(additional)[:max(0, MAX_PAGES - len(pages))]
 
-        print(
-            "[WARNING] Sitemap unavailable. "
-            "Using previous URLs.",
-            flush=True
-        )
-
-    else:
-
-        urls = set(
-            sitemap_urls
-        )
-
-        urls.update(
-            old_pages.keys()
-        )
-
-    urls = {
-        clean_url(url)
-        for url in urls
-    }
-
-    urls.discard(None)
-
-    urls = sorted(urls)[:MAX_PAGES]
-
-    print(
-        f"[START] {len(urls)} pages",
-        flush=True
-    )
-
-    pages = {}
-
-    failed = {}
-
-    removed = set()
-
-    # --------------------------------------------------------
-    # FIRST PASS
-    # --------------------------------------------------------
-
-    with ThreadPoolExecutor(
-        max_workers=MAX_WORKERS
-    ) as executor:
-
-        jobs = {
-            executor.submit(fetch, url): url
-            for url in urls
-        }
-
-        completed = 0
-
-        for future in as_completed(jobs):
-
-            url = jobs[future]
-
-            try:
-
-                result = future.result()
-
-                status = result["status"]
-
-                if status == "success":
-
-                    pages[url] = extract(
-                        url,
-                        result["html"]
-                    )
-
-                elif status == "removed":
-
-                    removed.add(url)
-
-                else:
-
-                    failed[url] = {
-                        "http_status":
-                            result.get(
-                                "http_status"
-                            )
-                    }
-
-            except Exception as error:
-
-                failed[url] = {
-                    "http_status": None,
-                    "error": str(error)
-                }
-
-            completed += 1
-
-            if (
-                completed % 25 == 0
-                or completed == len(urls)
-            ):
-
-                print(
-                    f"[PROGRESS] "
-                    f"{completed}/{len(urls)}",
-                    flush=True
-                )
-
-    # --------------------------------------------------------
-    # DISCOVER INTERNAL LINKS
-    # --------------------------------------------------------
-
-    discovered_links = set()
-
-    for data in pages.values():
-
-        for link in data.get(
-            "internal_links",
-            []
-        ):
-
-            cleaned = clean_url(link)
-
-            if cleaned:
-                discovered_links.add(cleaned)
-
-    additional = (
-        discovered_links
-        - set(pages.keys())
-        - set(failed.keys())
-        - removed
-    )
-
-    additional = sorted(
-        additional
-    )
-
-    remaining_slots = (
-        MAX_PAGES
-        - len(pages)
-    )
-
-    if remaining_slots > 0:
-
-        additional = additional[
-            :remaining_slots
-        ]
-
-    else:
-
-        additional = []
-
-    print(
-        f"[DISCOVERY] "
-        f"{len(additional)} additional internal-link pages",
-        flush=True
-    )
-
-    # --------------------------------------------------------
-    # SECOND PASS
-    # --------------------------------------------------------
+    print(f"[DISCOVERY] {len(additional)} additional internal-link pages", flush=True)
 
     if additional:
-
-        with ThreadPoolExecutor(
-            max_workers=MAX_WORKERS
-        ) as executor:
-
-            jobs = {
-                executor.submit(fetch, url): url
-                for url in additional
-            }
-
-            completed = 0
-
-            for future in as_completed(jobs):
-
-                url = jobs[future]
-
-                try:
-
-                    result = future.result()
-
-                    status = result["status"]
-
-                    if status == "success":
-
-                        pages[url] = extract(
-                            url,
-                            result["html"]
-                        )
-
-                    elif status == "removed":
-
-                        removed.add(url)
-
-                    else:
-
-                        failed[url] = {
-                            "http_status":
-                                result.get(
-                                    "http_status"
-                                )
-                        }
-
-                except Exception as error:
-
-                    failed[url] = {
-                        "http_status": None,
-                        "error": str(error)
-                    }
-
-                completed += 1
-
-                if (
-                    completed % 25 == 0
-                    or completed == len(additional)
-                ):
-
-                    print(
-                        f"[DISCOVERY PROGRESS] "
-                        f"{completed}/{len(additional)}",
-                        flush=True
-                    )
-
-    duration = round(
-        time.time() - start_time,
-        2
-    )
-
-    print(
-        f"[DONE] {len(pages)} pages collected",
-        flush=True
-    )
-
-    print(
-        f"[FAILED] {len(failed)} pages",
-        flush=True
-    )
-
-    print(
-        f"[REMOVED] {len(removed)} pages",
-        flush=True
-    )
-
-    print(
-        f"[DURATION] {duration} seconds",
-        flush=True
-    )
+        run_batch(additional, "DISCOVERY PROGRESS")
 
     return {
         "pages": pages,
         "failed": failed,
         "removed": removed,
-        "duration": duration,
+        "duration": round(time.time() - started, 2),
     }
-
-
-# ============================================================
-# COMPARE
-# ============================================================
 
 def compare(old, new, failed, removed):
-
     changes = []
+    old_urls, new_urls = set(old), set(new)
 
-    old_urls = set(old)
-    new_urls = set(new)
+    for url in sorted(new_urls - old_urls):
+        changes.append({"type": "new", "url": url, "field": "Page",
+                        "details": "New page discovered", "priority": "medium"})
 
-    # --------------------------------------------------------
-    # NEW
-    # --------------------------------------------------------
-
-    for url in sorted(
-        new_urls - old_urls
-    ):
-
-        changes.append({
-            "type": "new",
-            "url": url,
-            "field": "Page",
-            "details": "New page discovered",
-            "priority": "medium",
-        })
-
-    # --------------------------------------------------------
-    # REMOVED
-    # --------------------------------------------------------
-
-    for url in sorted(
-        (old_urls - new_urls) & removed
-    ):
-
-        changes.append({
-            "type": "removed",
-            "url": url,
-            "field": "Page",
-            "details": "Page returned 404/410",
-            "priority": "high",
-        })
-
-    # --------------------------------------------------------
-    # FAILED
-    # --------------------------------------------------------
+    for url in sorted((old_urls - new_urls) & removed):
+        changes.append({"type": "removed", "url": url, "field": "Page",
+                        "details": "Page returned 404/410", "priority": "high"})
 
     for url in sorted(failed):
+        changes.append({"type": "failed", "url": url, "field": "Crawl",
+                        "details": "Temporary crawl failure", "priority": "medium"})
 
-        changes.append({
-            "type": "failed",
-            "url": url,
-            "field": "Crawl",
-            "details": "Temporary crawl failure",
-            "priority": "medium",
-        })
-
-    # --------------------------------------------------------
-    # EXISTING PAGE CHANGES
-    # --------------------------------------------------------
-
-    fields = [
-        ("title", "Title", "high"),
-        ("description", "Description", "medium"),
-        ("canonical", "Canonical", "high"),
-        ("h1", "H1", "high"),
-        ("robots", "Robots", "high"),
-        ("content", "Content", "low"),
-        ("images", "Images", "medium"),
-        ("internal_links", "Internal Links", "medium"),
-        ("schema", "Schema", "high"),
-    ]
-
-    for url in sorted(
-        old_urls & new_urls
-    ):
-
-        before = old[url]
-        after = new[url]
-
-        for field, label, priority in fields:
-
-            # New fields should not create false
-            # changes when upgrading old snapshots.
-            if field not in before:
-                continue
-
-            if before.get(field) != after.get(field):
-
-                changes.append({
-                    "type": "changed",
-                    "url": url,
-                    "field": label,
-                    "old": before.get(
-                        field,
-                        ""
-                    ),
-                    "new": after.get(
-                        field,
-                        ""
-                    ),
-                    "details": f"{label} changed",
-                    "priority": priority,
-                })
-
+    for url in sorted(old_urls & new_urls):
+        before = old[url].get("fingerprints", {})
+        after = new[url].get("fingerprints", {})
+        for key, label, priority in FIELDS:
+            if key in before and before.get(key) != after.get(key):
+                changes.append({"type": "changed", "url": url, "field": label,
+                                "details": f"{label} changed", "priority": priority})
     return changes
 
+def save_snapshot(pages):
+    data = {
+        "version": 2,
+        "site": BASE_URL,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "pages": pages,
+    }
+    SNAPSHOT_FILE.write_text(
+        json.dumps(data, ensure_ascii=False, separators=(",", ":")),
+        encoding="utf-8"
+    )
 
-# ============================================================
-# HISTORY
-# ============================================================
-
-def save_history(
-    pages,
-    changes,
-    duration,
-    failed_count
-):
-
+def save_history(changes, pages, failed, removed, duration):
     history = []
-
     if HISTORY_FILE.exists():
-
         try:
-
-            history = json.loads(
-                HISTORY_FILE.read_text(
-                    encoding="utf-8"
-                )
-            )
-
-            if not isinstance(
-                history,
-                list
-            ):
-
-                history = []
-
+            x = json.loads(HISTORY_FILE.read_text(encoding="utf-8"))
+            if isinstance(x, list):
+                history = x
         except Exception:
-
-            history = []
-
-    now = datetime.now(
-        timezone.utc
-    )
-
-    new_count = sum(
-        c.get("type") == "new"
-        for c in changes
-    )
-
-    changed_count = sum(
-        c.get("type") == "changed"
-        for c in changes
-    )
-
-    removed_count = sum(
-        c.get("type") == "removed"
-        for c in changes
-    )
-
-    change_details = []
-
-    for change in changes:
-
-        item = {
-            "type": change.get("type", ""),
-            "url": change.get("url", ""),
-            "field": change.get("field", ""),
-            "priority": change.get("priority", ""),
-            "details": change.get("details", ""),
-        }
-
-        if "old" in change:
-            item["old"] = change.get("old", "")
-
-        if "new" in change:
-            item["new"] = change.get("new", "")
-
-        change_details.append(item)
+            pass
 
     history.append({
-
-        "date":
-            now.strftime(
-                "%Y-%m-%d"
-            ),
-
-        "checked_at":
-            now.isoformat(),
-
-        "pages":
-            len(pages),
-
-        "new":
-            new_count,
-
-        "changed":
-            changed_count,
-
-        "removed":
-            removed_count,
-
-        "failed":
-            failed_count,
-
-        "duration":
-            duration,
-
-        "changes":
-            change_details,
+        "checked_at": datetime.now(timezone.utc).isoformat(),
+        "pages": pages,
+        "new": sum(c["type"] == "new" for c in changes),
+        "changed": sum(c["type"] == "changed" for c in changes),
+        "removed": removed,
+        "failed": failed,
+        "duration": duration,
     })
-
     history = history[-365:]
-
     HISTORY_FILE.write_text(
-        json.dumps(
-            history,
-            indent=2,
-            ensure_ascii=False
-        ),
+        json.dumps(history, ensure_ascii=False, separators=(",", ":")),
         encoding="utf-8"
     )
-
     return history
 
-
-# ============================================================
-# DASHBOARD
-# ============================================================
-
-def make_dashboard(
-    pages,
-    changes,
-    history,
-    duration,
-    failed_count,
-    first_run
-):
-
-    now = datetime.now(
-        timezone.utc
-    ).strftime(
-        "%Y-%m-%d %H:%M UTC"
-    )
-
-    new_count = sum(
-        c.get("type") == "new"
-        for c in changes
-    )
-
-    changed_count = sum(
-        c.get("type") == "changed"
-        for c in changes
-    )
-
-    removed_count = sum(
-        c.get("type") == "removed"
-        for c in changes
-    )
-
-    failed_change_count = sum(
-        c.get("type") == "failed"
-        for c in changes
-    )
-
-    high_priority_count = sum(
-        c.get("priority") == "high"
-        for c in changes
-    )
-
-    def field_count(name):
-
-        return sum(
-            c.get("type") == "changed"
-            and c.get("field") == name
-            for c in changes
-        )
-
-    title_count = field_count("Title")
-    h1_count = field_count("H1")
-    description_count = field_count("Description")
-    canonical_count = field_count("Canonical")
-    robots_count = field_count("Robots")
-    content_count = field_count("Content")
-    image_count = field_count("Images")
-    link_count = field_count("Internal Links")
-    schema_count = field_count("Schema")
-
-    rows = []
-
-    for change in changes:
-
-        change_type = escape(
-            str(change.get("type", "")).upper()
-        )
-
-        field = escape(
-            str(change.get("field", ""))
-        )
-
-        priority = escape(
-            str(change.get("priority", "")).upper()
-        )
-
-        url = escape(
-            str(change.get("url", ""))
-        )
-
-        details = escape(
-            str(change.get("details", ""))
-        )
-
-        old_value = escape(
-            str(change.get("old", ""))
-        )
-
-        new_value = escape(
-            str(change.get("new", ""))
-        )
-
-        rows.append(
-            f"""
-            <tr
-                data-type="{escape(str(change.get("type", "")))}"
-                data-field="{escape(str(change.get("field", "")))}"
-                data-priority="{escape(str(change.get("priority", "")))}"
-            >
-                <td><strong>{change_type}</strong></td>
-                <td><strong>{priority}</strong></td>
-                <td>
-                    <a
-                        href="{url}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        {url}
-                    </a>
-                </td>
-                <td>{field}</td>
-                <td>{details}</td>
-                <td>
-                    {
-                        (
-                            "<details>"
-                            "<summary>View</summary>"
-                            "<div><b>OLD:</b><br>"
-                            f"{old_value}"
-                            "</div><br>"
-                            "<div><b>NEW:</b><br>"
-                            f"{new_value}"
-                            "</div>"
-                            "</details>"
-                        )
-                        if change.get("type") == "changed"
-                        else ""
-                    }
-                </td>
-            </tr>
-            """
-        )
-
-    rows_html = "\n".join(rows)
-
-    if not rows_html:
-
-        rows_html = """
-        <tr>
-            <td colspan="6">
-                No changes detected.
-            </td>
-        </tr>
-        """
-
-    notice = ""
-
-    if first_run:
-
-        notice = """
-        <div class="notice">
-            First crawl completed. This run creates the
-            baseline for future comparisons.
-        </div>
-        """
-
-    history_rows = []
-
-    for item in reversed(history):
-
-        history_rows.append(
-            f"""
-            <tr>
-                <td>
-                    {escape(str(item.get("checked_at", "")))}
-                </td>
-                <td>{item.get("pages", 0)}</td>
-                <td>{item.get("new", 0)}</td>
-                <td>{item.get("changed", 0)}</td>
-                <td>{item.get("removed", 0)}</td>
-                <td>{item.get("failed", 0)}</td>
-                <td>{item.get("duration", 0)} sec</td>
-            </tr>
-            """
-        )
-
-    history_html = "\n".join(
-        history_rows
-    )
-
-    html = f"""
-<!DOCTYPE html>
-
-<html lang="en">
-
-<head>
-
-<meta charset="UTF-8">
-
-<meta
-    name="viewport"
-    content="width=device-width, initial-scale=1.0"
->
-
-<title>Website Dashboard</title>
-
-<style>
-
-* {{
-    box-sizing: border-box;
-}}
-
-body {{
-    font-family: Arial, Helvetica, sans-serif;
-    margin: 0;
-    background: #f4f6f8;
-    color: #202124;
-}}
-
-.container {{
-    max-width: 1500px;
-    margin: auto;
-    padding: 30px;
-}}
-
-h1 {{
-    margin: 0 0 6px 0;
-    font-size: 34px;
-}}
-
-.subtitle {{
-    color: #6b7280;
-    margin-bottom: 25px;
-    font-size: 15px;
-}}
-
-.notice {{
-    background: #e8f4ff;
-    border: 1px solid #b9ddff;
-    padding: 18px;
-    margin-bottom: 25px;
-    border-radius: 10px;
-}}
-
-.cards {{
-    display: grid;
-    grid-template-columns:
-        repeat(auto-fit, minmax(180px, 1fr));
-    gap: 15px;
-    margin-bottom: 20px;
-}}
-
-.card {{
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.07);
-}}
-
-.card-title {{
-    color: #6b7280;
-    font-size: 14px;
-}}
-
-.number {{
-    font-size: 32px;
-    font-weight: bold;
-    margin-top: 8px;
-}}
-
-.health {{
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.07);
-    margin-bottom: 20px;
-}}
-
-.health-grid {{
-    display: grid;
-    grid-template-columns:
-        repeat(auto-fit, minmax(180px, 1fr));
-    gap: 15px;
-}}
-
-.health-label {{
-    color: #777;
-    font-size: 13px;
-}}
-
-.health-value {{
-    font-weight: bold;
-    margin-top: 5px;
-}}
-
-.filters {{
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.07);
-    margin-bottom: 20px;
-}}
-
-.filter-row {{
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-}}
-
-.search {{
-    flex: 1;
-    min-width: 260px;
-    padding: 11px 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 14px;
-}}
-
-select {{
-    padding: 11px 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    background: white;
-}}
-
-.section {{
-    background: white;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,.07);
-    margin-bottom: 20px;
-}}
-
-.table-wrap {{
-    overflow-x: auto;
-}}
-
-table {{
-    width: 100%;
-    border-collapse: collapse;
-}}
-
-th, td {{
-    padding: 13px;
-    border-bottom: 1px solid #e5e7eb;
-    text-align: left;
-    vertical-align: top;
-}}
-
-th {{
-    background: #f9fafb;
-}}
-
-a {{
-    color: #0969da;
-    word-break: break-word;
-}}
-
-details {{
-    max-width: 500px;
-}}
-
-.footer {{
-    margin-top: 20px;
-    color: #777;
-    font-size: 13px;
-}}
-
-@media (max-width: 700px) {{
-
-    .container {{
-        padding: 15px;
-    }}
-
-    h1 {{
-        font-size: 27px;
-    }}
-
-}}
-
-</style>
-
-</head>
-
-<body>
-
-<div class="container">
-
-<h1>Website Dashboard</h1>
-
-<div class="subtitle">
-    Page and content overview · Last checked: {now}
-</div>
-
-{notice}
-
-<!-- OVERVIEW -->
-
-<div class="cards">
-
-<div class="card">
-<div class="card-title">Pages</div>
-<div class="number">{len(pages)}</div>
-</div>
-
-<div class="card">
-<div class="card-title">New Pages</div>
-<div class="number">{new_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">Changed</div>
-<div class="number">{changed_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">Removed</div>
-<div class="number">{removed_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">Failed</div>
-<div class="number">{failed_change_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">High Priority</div>
-<div class="number">{high_priority_count}</div>
-</div>
-
-</div>
-
-
-<!-- SEO -->
-
-<div class="cards">
-
-<div class="card">
-<div class="card-title">Title Changes</div>
-<div class="number">{title_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">H1 Changes</div>
-<div class="number">{h1_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">Description Changes</div>
-<div class="number">{description_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">Canonical Changes</div>
-<div class="number">{canonical_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">Robots Changes</div>
-<div class="number">{robots_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">Content Changes</div>
-<div class="number">{content_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">Image Changes</div>
-<div class="number">{image_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">Link Changes</div>
-<div class="number">{link_count}</div>
-</div>
-
-<div class="card">
-<div class="card-title">Schema Changes</div>
-<div class="number">{schema_count}</div>
-</div>
-
-</div>
-
-
-<!-- HEALTH -->
-
-<div class="health">
-
-<div class="health-grid">
-
-<div>
-<div class="health-label">Crawl Status</div>
-<div class="health-value">
-{"✓ Successful" if failed_count == 0 else "⚠ Needs Attention"}
-</div>
-</div>
-
-<div>
-<div class="health-label">Pages Scanned</div>
-<div class="health-value">{len(pages)}</div>
-</div>
-
-<div>
-<div class="health-label">Failed</div>
-<div class="health-value">{failed_count}</div>
-</div>
-
-<div>
-<div class="health-label">Crawl Duration</div>
-<div class="health-value">{duration} seconds</div>
-</div>
-
-</div>
-
-</div>
-
-
-<!-- FILTERS -->
-
-<div class="filters">
-
-<div class="filter-row">
-
-<input
-    class="search"
-    id="search"
-    type="text"
-    placeholder="Search URL, field or details..."
-    onkeyup="filterRows()"
->
-
-<select id="typeFilter" onchange="filterRows()">
-
-<option value="all">All Types</option>
-<option value="new">New</option>
-<option value="changed">Changed</option>
-<option value="removed">Removed</option>
-<option value="failed">Failed</option>
-
-</select>
-
-<select id="fieldFilter" onchange="filterRows()">
-
-<option value="all">All Fields</option>
-<option value="Title">Title</option>
-<option value="H1">H1</option>
-<option value="Description">Description</option>
-<option value="Canonical">Canonical</option>
-<option value="Robots">Robots</option>
-<option value="Content">Content</option>
-<option value="Images">Images</option>
-<option value="Internal Links">Internal Links</option>
-<option value="Schema">Schema</option>
-<option value="Page">Page</option>
-<option value="Crawl">Crawl</option>
-
-</select>
-
-<select id="priorityFilter" onchange="filterRows()">
-
-<option value="all">All Priority</option>
-<option value="high">High</option>
-<option value="medium">Medium</option>
-<option value="low">Low</option>
-
-</select>
-
-</div>
-
-</div>
-
-
-<!-- CURRENT CHANGES -->
-
-<div class="section">
-
-<h2>Current Changes</h2>
-
-<div class="table-wrap">
-
-<table id="changeTable">
-
-<thead>
-
-<tr>
-
-<th>Type</th>
-<th>Priority</th>
-<th>Page</th>
-<th>Element</th>
-<th>Details</th>
-<th>Values</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{rows_html}
-
-</tbody>
-
-</table>
-
-</div>
-
-</div>
-
-
-<!-- HISTORY -->
-
-<div class="section">
-
-<h2>History</h2>
-
-<div class="table-wrap">
-
-<table>
-
-<thead>
-
-<tr>
-
-<th>Date</th>
-<th>Pages</th>
-<th>New</th>
-<th>Changed</th>
-<th>Removed</th>
-<th>Failed</th>
-<th>Duration</th>
-
-</tr>
-
-</thead>
-
-<tbody>
-
-{history_html}
-
-</tbody>
-
-</table>
-
-</div>
-
-</div>
-
-
-<div class="footer">
-
-Pages scanned: {len(pages)}
-· Current changes: {len(changes)}
-· History records: {len(history)}
-
-</div>
-
-</div>
-
-
-<script>
-
-function filterRows() {{
-
-    const search =
-        document
-            .getElementById("search")
-            .value
-            .toLowerCase();
-
-    const type =
-        document
-            .getElementById("typeFilter")
-            .value;
-
-    const field =
-        document
-            .getElementById("fieldFilter")
-            .value;
-
-    const priority =
-        document
-            .getElementById("priorityFilter")
-            .value;
-
-    const rows =
-        document.querySelectorAll(
-            "#changeTable tbody tr"
-        );
-
-    rows.forEach(function(row) {{
-
-        const rowType =
-            row.dataset.type || "";
-
-        const rowField =
-            row.dataset.field || "";
-
-        const rowPriority =
-            row.dataset.priority || "";
-
-        const rowText =
-            row.innerText.toLowerCase();
-
-        const matchesSearch =
-            rowText.includes(search);
-
-        const matchesType =
-            type === "all"
-            || rowType === type;
-
-        const matchesField =
-            field === "all"
-            || rowField === field;
-
-        const matchesPriority =
-            priority === "all"
-            || rowPriority === priority;
-
-        row.style.display =
-            (
-                matchesSearch
-                && matchesType
-                && matchesField
-                && matchesPriority
-            )
-            ? ""
-            : "none";
-
-    }});
-
-}}
-
-</script>
-
-</body>
-
-</html>
-"""
-
-    DASHBOARD_FILE.write_text(
-        html,
-        encoding="utf-8"
-    )
-
-
-# ============================================================
-# MAIN
-# ============================================================
-
-def main():
-
-    DATA_DIR.mkdir(
-        exist_ok=True
-    )
-
-    old_pages = {}
-
-    first_run = not SNAPSHOT_FILE.exists()
-
-    if SNAPSHOT_FILE.exists():
-
-        try:
-
-            data = json.loads(
-                SNAPSHOT_FILE.read_text(
-                    encoding="utf-8"
-                )
-            )
-
-            old_pages = data.get(
-                "pages",
-                {}
-            )
-
-        except Exception:
-
-            old_pages = {}
-
-    print(
-        f"[BASELINE] {len(old_pages)} pages",
-        flush=True
-    )
-
-    crawl_result = crawl(
-        old_pages
-    )
-
-    pages = crawl_result["pages"]
-
-    failed = crawl_result["failed"]
-
-    removed = crawl_result["removed"]
-
-    duration = crawl_result["duration"]
-
-    changes = compare(
-        old_pages,
-        pages,
-        failed,
-        removed
-    )
-
-    # --------------------------------------------------------
-    # SAVE SNAPSHOT
-    # --------------------------------------------------------
-
-    snapshot = {
-
-        "site":
-            BASE_URL,
-
-        "checked_at":
-            datetime.now(
-                timezone.utc
-            ).isoformat(),
-
-        "pages":
-            pages,
-
-        "changes":
-            changes,
-
-        "failed":
-            failed,
+def make_dashboard(pages, changes, history, duration, failed, removed):
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    new_n = sum(c["type"] == "new" for c in changes)
+    changed_n = sum(c["type"] == "changed" for c in changes)
+    high_n = sum(c.get("priority") == "high" for c in changes)
+
+    counts = {
+        label: sum(c["type"] == "changed" and c["field"] == label for c in changes)
+        for _, label, _ in FIELDS
     }
 
-    SNAPSHOT_FILE.write_text(
-        json.dumps(
-            snapshot,
-            indent=2,
-            ensure_ascii=False
-        ),
-        encoding="utf-8"
-    )
+    rows = []
+    for c in changes[:MAX_DASHBOARD_ROWS]:
+        rows.append(
+            "<tr>"
+            f"<td><b>{escape(c['type'].upper())}</b></td>"
+            f"<td>{escape(c.get('priority','').upper())}</td>"
+            f"<td><a target='_blank' rel='noopener' href='{escape(c['url'])}'>{escape(c['url'])}</a></td>"
+            f"<td>{escape(c.get('field',''))}</td>"
+            f"<td>{escape(c.get('details',''))}</td>"
+            "</tr>"
+        )
+    if not rows:
+        rows = ["<tr><td colspan='5'>No changes detected.</td></tr>"]
 
-    # --------------------------------------------------------
-    # HISTORY
-    # --------------------------------------------------------
+    history_rows = []
+    for h in reversed(history):
+        history_rows.append(
+            "<tr>"
+            f"<td>{escape(str(h.get('checked_at','')))}</td>"
+            f"<td>{h.get('pages',0)}</td><td>{h.get('new',0)}</td>"
+            f"<td>{h.get('changed',0)}</td><td>{h.get('removed',0)}</td>"
+            f"<td>{h.get('failed',0)}</td><td>{h.get('duration',0)}s</td>"
+            "</tr>"
+        )
 
-    history = save_history(
-        pages=pages,
-        changes=changes,
-        duration=duration,
-        failed_count=len(failed),
-    )
+    def card(name, value):
+        return f"<div class='card'><div>{escape(name)}</div><strong>{value}</strong></div>"
 
-    # --------------------------------------------------------
-    # DASHBOARD
-    # --------------------------------------------------------
+    overview = "".join([
+        card("Pages", len(pages)),
+        card("New Pages", new_n),
+        card("Changed", changed_n),
+        card("Removed", removed),
+        card("Failed", failed),
+        card("High Priority", high_n),
+    ])
+    seo = "".join(card(f"{k} Changes", v) for k, v in counts.items())
 
-    make_dashboard(
-        pages=pages,
-        changes=changes,
-        history=history,
-        duration=duration,
-        failed_count=len(failed),
-        first_run=first_run,
-    )
+    html = f"""<!doctype html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Website Dashboard</title>
+<style>
+body{{font-family:Arial,sans-serif;margin:0;background:#f4f6f8;color:#202124}}
+.container{{max-width:1500px;margin:auto;padding:28px}} h1{{margin-bottom:5px}}
+.sub{{color:#667085;margin-bottom:24px}}
+.cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}}
+.card,.section,.health{{background:#fff;padding:18px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.07)}}
+.card div{{color:#667085}} .card strong{{font-size:30px;display:block;margin-top:8px}}
+.section{{margin-top:20px}} .wrap{{overflow:auto}}
+table{{width:100%;border-collapse:collapse}} th,td{{padding:11px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}}
+th{{background:#f9fafb}} a{{color:#0969da;word-break:break-all}}
+input,select{{padding:10px;border:1px solid #d0d5dd;border-radius:8px}}
+#search{{width:50%;min-width:250px}}
+</style></head><body><div class="container">
+<h1>Website Dashboard</h1>
+<div class="sub">Page and content overview · Last checked: {now}</div>
+<div class="cards">{overview}</div>
+<div class="cards">{seo}</div>
+<div class="health">Pages scanned: <b>{len(pages)}</b> · Failed: <b>{failed}</b> · Removed: <b>{removed}</b> · Duration: <b>{duration}s</b></div>
+<div class="section"><h2>Current Changes</h2>
+<p>Showing {min(len(changes), MAX_DASHBOARD_ROWS)} of {len(changes)} change records.</p>
+<input id="search" placeholder="Search URL, field or details" oninput="filterRows()">
+<select id="type" onchange="filterRows()"><option value="">All types</option><option>new</option><option>changed</option><option>removed</option><option>failed</option></select>
+<div class="wrap"><table id="changes"><thead><tr><th>Type</th><th>Priority</th><th>Page</th><th>Element</th><th>Details</th></tr></thead>
+<tbody>{''.join(rows)}</tbody></table></div></div>
+<div class="section"><h2>History</h2><div class="wrap"><table><thead><tr><th>Date</th><th>Pages</th><th>New</th><th>Changed</th><th>Removed</th><th>Failed</th><th>Duration</th></tr></thead>
+<tbody>{''.join(history_rows)}</tbody></table></div></div>
+</div>
+<script>
+function filterRows(){{
+ const q=document.getElementById('search').value.toLowerCase();
+ const t=document.getElementById('type').value.toLowerCase();
+ document.querySelectorAll('#changes tbody tr').forEach(r=>{{
+   const txt=r.innerText.toLowerCase();
+   const typ=r.cells[0]?.innerText.toLowerCase()||'';
+   r.style.display=(!q||txt.includes(q))&&(!t||typ===t)?'':'none';
+ }});
+}}
+</script></body></html>"""
+    DASHBOARD_FILE.write_text(html, encoding="utf-8")
 
-    # --------------------------------------------------------
-    # CLEAN FINAL LOGS
-    # --------------------------------------------------------
+def main():
+    DATA_DIR.mkdir(exist_ok=True)
+    old = load_snapshot()
+    print(f"[BASELINE] {len(old)} pages", flush=True)
 
-    new_count = sum(
-        c.get("type") == "new"
-        for c in changes
-    )
+    result = crawl(old)
+    pages = result["pages"]
+    failed = result["failed"]
+    removed = result["removed"]
+    duration = result["duration"]
 
-    changed_count = sum(
-        c.get("type") == "changed"
-        for c in changes
-    )
+    # Temporary failures are kept in the baseline so they do not become false removals.
+    for url in failed:
+        if url in old and url not in pages:
+            pages[url] = old[url]
 
-    removed_count = sum(
-        c.get("type") == "removed"
-        for c in changes
-    )
+    changes = compare(old, pages, failed, removed)
+    removed_count = sum(c["type"] == "removed" for c in changes)
 
-    failed_count = sum(
-        c.get("type") == "failed"
-        for c in changes
-    )
+    save_snapshot(pages)
+    history = save_history(changes, len(pages), len(failed), removed_count, duration)
+    make_dashboard(pages, changes, history, duration, len(failed), removed_count)
 
-    print(
-        f"[NEW] {new_count} pages",
-        flush=True
-    )
-
-    print(
-        f"[CHANGED] {changed_count} records",
-        flush=True
-    )
-
-    print(
-        f"[REMOVED] {removed_count} pages",
-        flush=True
-    )
-
-    print(
-        f"[FAILED] {failed_count} pages",
-        flush=True
-    )
-
-    print(
-        f"[PAGES] {len(pages)} pages",
-        flush=True
-    )
-
-    print(
-        f"[COMPLETE] Duration: {duration}s",
-        flush=True
-    )
-
+    print(f"[NEW] {sum(c['type']=='new' for c in changes)} pages", flush=True)
+    print(f"[CHANGED] {sum(c['type']=='changed' for c in changes)} records", flush=True)
+    print(f"[REMOVED] {removed_count} pages", flush=True)
+    print(f"[FAILED] {len(failed)} pages", flush=True)
+    print(f"[PAGES] {len(pages)} pages", flush=True)
+    print("[SNAPSHOT] Compact snapshot saved", flush=True)
+    print(f"[COMPLETE] Duration: {duration}s", flush=True)
 
 if __name__ == "__main__":
     main()
