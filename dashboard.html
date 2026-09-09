@@ -1,41 +1,139 @@
 <!doctype html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<html>
+<head>
+<meta charset='utf-8'>
+<meta name='viewport'
+content='width=device-width,initial-scale=1'>
 <title>Website Dashboard</title>
 <style>
-body{font-family:Arial,sans-serif;margin:0;background:#f4f6f8;color:#202124}
-.container{max-width:1500px;margin:auto;padding:28px} h1{margin-bottom:5px}
+body{font-family:Arial,sans-serif;margin:0;
+background:#f4f6f8;color:#202124}
+.container{max-width:1500px;margin:auto;padding:28px}
+h1{margin-bottom:5px}
 .sub{color:#667085;margin-bottom:24px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px;margin-bottom:18px}
-.card,.section,.health{background:#fff;padding:18px;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
-.card div{color:#667085} .card strong{font-size:30px;display:block;margin-top:8px}
-.section{margin-top:20px} .wrap{overflow:auto}
-table{width:100%;border-collapse:collapse} th,td{padding:11px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}
-th{background:#f9fafb} a{color:#0969da;word-break:break-all}
-input,select{padding:10px;border:1px solid #d0d5dd;border-radius:8px}
+.cards{display:grid;
+grid-template-columns:repeat(auto-fit,minmax(170px,1fr));
+gap:14px;margin-bottom:18px}
+.card,.section,.health{background:#fff;padding:18px;
+border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.07)}
+.card div{color:#667085}
+.card strong{font-size:30px;display:block;margin-top:8px}
+.section{margin-top:20px}
+.wrap{overflow:auto}
+table{width:100%;border-collapse:collapse}
+th,td{padding:11px;border-bottom:1px solid #e5e7eb;
+text-align:left;vertical-align:top}
+th{background:#f9fafb}
+a{color:#0969da;word-break:break-all}
+input,select{padding:10px;border:1px solid #d0d5dd;
+border-radius:8px}
 #search{width:50%;min-width:250px}
-</style></head><body><div class="container">
+pre{white-space:pre-wrap;max-width:700px;
+font-family:Arial,sans-serif}
+</style>
+</head>
+<body>
+<div class='container'>
 <h1>Website Dashboard</h1>
-<div class="sub">Page and content overview · Last checked: 2026-09-09 05:27 UTC</div>
-<div class="cards"><div class='card'><div>Pages</div><strong>4227</strong></div><div class='card'><div>New Pages</div><strong>0</strong></div><div class='card'><div>Changed</div><strong>0</strong></div><div class='card'><div>Removed</div><strong>0</strong></div><div class='card'><div>Failed</div><strong>8</strong></div><div class='card'><div>High Priority</div><strong>0</strong></div></div>
-<div class="cards"><div class='card'><div>Title Changes</div><strong>0</strong></div><div class='card'><div>Description Changes</div><strong>0</strong></div><div class='card'><div>Canonical Changes</div><strong>0</strong></div><div class='card'><div>H1 Changes</div><strong>0</strong></div><div class='card'><div>Robots Changes</div><strong>0</strong></div><div class='card'><div>Content Changes</div><strong>0</strong></div><div class='card'><div>Images Changes</div><strong>0</strong></div><div class='card'><div>Internal Links Changes</div><strong>0</strong></div><div class='card'><div>Schema Changes</div><strong>0</strong></div></div>
-<div class="health">Pages scanned: <b>4227</b> · Failed: <b>8</b> · Removed: <b>0</b> · Duration: <b>428.41s</b></div>
-<div class="section"><h2>Current Changes</h2>
-<p>Showing 8 of 8 change records.</p>
-<input id="search" placeholder="Search URL, field or details" oninput="filterRows()">
-<select id="type" onchange="filterRows()"><option value="">All types</option><option>new</option><option>changed</option><option>removed</option><option>failed</option></select>
-<div class="wrap"><table id="changes"><thead><tr><th>Type</th><th>Priority</th><th>Page</th><th>Element</th><th>Details</th></tr></thead>
-<tbody><tr><td><b>FAILED</b></td><td>MEDIUM</td><td><a target='_blank' rel='noopener' href='https://www.excelr.com/selenium-automation-testing-course-training-in-gurgaon'>https://www.excelr.com/selenium-automation-testing-course-training-in-gurgaon</a></td><td>Crawl</td><td>Temporary crawl failure</td></tr><tr><td><b>FAILED</b></td><td>MEDIUM</td><td><a target='_blank' rel='noopener' href='https://www.excelr.com/selenium-automation-testing-course-training-in-guwahati'>https://www.excelr.com/selenium-automation-testing-course-training-in-guwahati</a></td><td>Crawl</td><td>Temporary crawl failure</td></tr><tr><td><b>FAILED</b></td><td>MEDIUM</td><td><a target='_blank' rel='noopener' href='https://www.excelr.com/selenium-automation-testing-course-training-in-halifax-canada'>https://www.excelr.com/selenium-automation-testing-course-training-in-halifax-canada</a></td><td>Crawl</td><td>Temporary crawl failure</td></tr><tr><td><b>FAILED</b></td><td>MEDIUM</td><td><a target='_blank' rel='noopener' href='https://www.excelr.com/selenium-automation-testing-course-training-in-hobart-australia'>https://www.excelr.com/selenium-automation-testing-course-training-in-hobart-australia</a></td><td>Crawl</td><td>Temporary crawl failure</td></tr><tr><td><b>FAILED</b></td><td>MEDIUM</td><td><a target='_blank' rel='noopener' href='https://www.excelr.com/selenium-automation-testing-course-training-in-hong-kong'>https://www.excelr.com/selenium-automation-testing-course-training-in-hong-kong</a></td><td>Crawl</td><td>Temporary crawl failure</td></tr><tr><td><b>FAILED</b></td><td>MEDIUM</td><td><a target='_blank' rel='noopener' href='https://www.excelr.com/selenium-automation-testing-course-training-in-houston-texas'>https://www.excelr.com/selenium-automation-testing-course-training-in-houston-texas</a></td><td>Crawl</td><td>Temporary crawl failure</td></tr><tr><td><b>FAILED</b></td><td>MEDIUM</td><td><a target='_blank' rel='noopener' href='https://www.excelr.com/selenium-automation-testing-course-training-in-hyderabad'>https://www.excelr.com/selenium-automation-testing-course-training-in-hyderabad</a></td><td>Crawl</td><td>Temporary crawl failure</td></tr><tr><td><b>FAILED</b></td><td>MEDIUM</td><td><a target='_blank' rel='noopener' href='https://www.excelr.com/selenium-automation-testing-course-training-in-indonesia'>https://www.excelr.com/selenium-automation-testing-course-training-in-indonesia</a></td><td>Crawl</td><td>Temporary crawl failure</td></tr></tbody></table></div></div>
-<div class="section"><h2>History</h2><div class="wrap"><table><thead><tr><th>Date</th><th>Pages</th><th>New</th><th>Changed</th><th>Removed</th><th>Failed</th><th>Duration</th></tr></thead>
-<tbody><tr><td>2026-09-09T05:27:09.849532+00:00</td><td>4227</td><td>0</td><td>0</td><td>0</td><td>8</td><td>428.41s</td></tr><tr><td>2026-09-08T18:46:14.825691+00:00</td><td>4227</td><td>0</td><td>293</td><td>0</td><td>0</td><td>832.93s</td></tr><tr><td>2026-09-08T18:25:49.508619+00:00</td><td>4227</td><td>38</td><td>11369</td><td>0</td><td>16</td><td>595.12s</td></tr></tbody></table></div></div>
+<div class='sub'>
+Page and content overview · Last checked: 2026-09-09 06:47 UTC
 </div>
+
+<div class='cards'><div class='card'><div>Pages</div><strong>4227</strong></div><div class='card'><div>New Pages</div><strong>0</strong></div><div class='card'><div>Changed</div><strong>0</strong></div><div class='card'><div>Removed</div><strong>0</strong></div><div class='card'><div>Failed</div><strong>0</strong></div><div class='card'><div>High Priority</div><strong>0</strong></div></div>
+<div class='cards'><div class='card'><div>Title Changes</div><strong>0</strong></div><div class='card'><div>Description Changes</div><strong>0</strong></div><div class='card'><div>Canonical Changes</div><strong>0</strong></div><div class='card'><div>H1 Changes</div><strong>0</strong></div><div class='card'><div>Robots Changes</div><strong>0</strong></div><div class='card'><div>Content Changes</div><strong>0</strong></div><div class='card'><div>Images Changes</div><strong>0</strong></div><div class='card'><div>Internal Links Changes</div><strong>0</strong></div><div class='card'><div>Schema Changes</div><strong>0</strong></div><div class='card'><div>Visual Changes</div><strong>0</strong></div></div>
+
+<div class='health'>
+Pages scanned: <b>4227</b> ·
+Failed: <b>0</b> ·
+Removed: <b>0</b> ·
+Visual errors: <b>1</b> ·
+Duration: <b>484.98s</b>
+</div>
+
+<div class='section'>
+<h2>Current Changes</h2>
+<p>
+Showing 0
+of 0 change records.
+</p>
+
+<input id='search'
+placeholder='Search URL, field or details'
+oninput='filterRows()'>
+
+<select id='type'
+onchange='filterRows()'>
+<option value=''>All types</option>
+<option>new</option>
+<option>changed</option>
+<option>visual</option>
+<option>removed</option>
+<option>failed</option>
+</select>
+
+<div class='wrap'>
+<table id='changes'>
+<thead>
+<tr>
+<th>Type</th>
+<th>Priority</th>
+<th>Page</th>
+<th>Element</th>
+<th>Details / Before → After</th>
+</tr>
+</thead>
+<tbody>
+<tr><td colspan='5'>No changes detected.</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+<div class='section'>
+<h2>History</h2>
+<div class='wrap'>
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Pages</th>
+<th>New</th>
+<th>Changed</th>
+<th>Removed</th>
+<th>Failed</th>
+<th>Visual</th>
+<th>Duration</th>
+</tr>
+</thead>
+<tbody>
+<tr><td>2026-09-09T06:47:15.230626+00:00</td><td>4227</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>484.98s</td></tr><tr><td>2026-09-09T05:27:09.849532+00:00</td><td>4227</td><td>0</td><td>0</td><td>0</td><td>8</td><td>0</td><td>428.41s</td></tr><tr><td>2026-09-08T18:46:14.825691+00:00</td><td>4227</td><td>0</td><td>293</td><td>0</td><td>0</td><td>0</td><td>832.93s</td></tr><tr><td>2026-09-08T18:25:49.508619+00:00</td><td>4227</td><td>38</td><td>11369</td><td>0</td><td>16</td><td>0</td><td>595.12s</td></tr>
+</tbody>
+</table>
+</div>
+</div>
+
+</div>
+
 <script>
 function filterRows(){
- const q=document.getElementById('search').value.toLowerCase();
- const t=document.getElementById('type').value.toLowerCase();
- document.querySelectorAll('#changes tbody tr').forEach(r=>{
-   const txt=r.innerText.toLowerCase();
-   const typ=r.cells[0]?.innerText.toLowerCase()||'';
-   r.style.display=(!q||txt.includes(q))&&(!t||typ===t)?'':'none';
- });
+const q=document.getElementById('search')
+.value.toLowerCase();
+
+const t=document.getElementById('type')
+.value.toLowerCase();
+
+document.querySelectorAll(
+'#changes tbody tr'
+).forEach(r=>{
+const txt=r.innerText.toLowerCase();
+const typ=r.cells[0]?.innerText
+.toLowerCase()||'';
+
+r.style.display=(!q||txt.includes(q))
+&&(!t||typ===t)?'':'none';
+});
 }
-</script></body></html>
+</script>
+
+</body>
+</html>
