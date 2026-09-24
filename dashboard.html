@@ -4,59 +4,1275 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>ExcelR Website Monitoring Dashboard</title>
+
 <style>
-*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:#f4f6f8;color:#202124}.wrap{max-width:1500px;margin:auto;padding:28px}
-header{display:flex;justify-content:space-between;gap:20px;margin-bottom:22px}h1{margin:0 0 6px;font-size:32px}.sub{color:#6b7280;font-size:14px}.status{padding:9px 13px;border-radius:20px;background:#e8f5e9;color:#166534;font-weight:bold;height:max-content}
-.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:24px}.card,.section{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 2px 7px rgba(0,0,0,.04)}.card{padding:16px}.label{font-size:11px;color:#6b7280;font-weight:bold;text-transform:uppercase}.num{font-size:28px;font-weight:800;margin-top:7px}.section{padding:20px;margin-bottom:22px}.section h2{margin:0 0 15px;font-size:21px}
-.toolbar{display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap}input,select{padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;background:white;font-size:14px}input{min-width:280px;flex:1}
-.change{border:1px solid #e5e7eb;border-radius:12px;margin:0 0 12px;overflow:hidden}.summary{padding:15px;cursor:pointer;list-style:none}.summary::-webkit-details-marker{display:none}.top{display:flex;justify-content:space-between;gap:12px;align-items:center}.left{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.badge,.priority{font-size:11px;font-weight:800;padding:5px 8px;border-radius:999px}.changed{background:#fff7ed;color:#9a3412}.new{background:#ecfdf5;color:#047857}.removed{background:#fef2f2;color:#b91c1c}.failed{background:#fef3c7;color:#92400e}.high{background:#fee2e2;color:#b91c1c}.medium{background:#fef3c7;color:#92400e}.low{background:#f3f4f6;color:#4b5563}.url{font-size:13px;color:#374151;word-break:break-all}.field{font-weight:800}.detail{padding:0 15px 16px}.comparison{display:grid;grid-template-columns:1fr 50px 1fr;gap:12px}.box{padding:13px;border-radius:10px}.old{background:#fff1f2;border:1px solid #fecdd3}.after{background:#ecfdf5;border:1px solid #a7f3d0}.boxlabel{font-size:11px;font-weight:900;margin-bottom:8px}.old .boxlabel{color:#be123c}.after .boxlabel{color:#047857}.value{white-space:pre-wrap;word-break:break-word;line-height:1.55;font-size:13px;max-height:420px;overflow:auto}.arrow{display:flex;align-items:center;justify-content:center;font-size:24px;color:#6b7280}.meta{margin-top:12px;color:#6b7280;font-size:13px}.empty{text-align:center;padding:35px;color:#6b7280}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:11px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#f9fafb;color:#6b7280;font-size:11px;text-transform:uppercase}
-@media(max-width:1000px){.cards{grid-template-columns:repeat(3,1fr)}.comparison{grid-template-columns:1fr}.arrow{transform:rotate(90deg);height:24px}}@media(max-width:600px){.wrap{padding:15px}.cards{grid-template-columns:repeat(2,1fr)}h1{font-size:25px}}
+*{box-sizing:border-box}
+
+body{
+    margin:0;
+    font-family:Arial,sans-serif;
+    background:#f4f6f8;
+    color:#202124
+}
+
+.wrap{
+    max-width:1500px;
+    margin:auto;
+    padding:28px
+}
+
+header{
+    display:flex;
+    justify-content:space-between;
+    gap:20px;
+    margin-bottom:22px
+}
+
+h1{
+    margin:0 0 6px;
+    font-size:32px
+}
+
+.sub{
+    color:#6b7280;
+    font-size:14px
+}
+
+.status{
+    padding:9px 13px;
+    border-radius:20px;
+    background:#e8f5e9;
+    color:#166534;
+    font-weight:bold;
+    height:max-content
+}
+
+.cards{
+    display:grid;
+    grid-template-columns:repeat(6,1fr);
+    gap:12px;
+    margin-bottom:24px
+}
+
+.card,
+.section{
+    background:#fff;
+    border:1px solid #e5e7eb;
+    border-radius:14px;
+    box-shadow:0 2px 7px rgba(0,0,0,.04)
+}
+
+.card{
+    padding:16px
+}
+
+.label{
+    font-size:11px;
+    color:#6b7280;
+    font-weight:bold;
+    text-transform:uppercase
+}
+
+.num{
+    font-size:28px;
+    font-weight:800;
+    margin-top:7px
+}
+
+.section{
+    padding:20px;
+    margin-bottom:22px
+}
+
+.section h2{
+    margin:0 0 15px;
+    font-size:21px
+}
+
+.toolbar{
+    display:flex;
+    gap:10px;
+    margin-bottom:15px;
+    flex-wrap:wrap
+}
+
+input,
+select{
+    padding:10px 12px;
+    border:1px solid #d1d5db;
+    border-radius:8px;
+    background:white;
+    font-size:14px
+}
+
+input{
+    min-width:280px;
+    flex:1
+}
+
+.change{
+    border:1px solid #e5e7eb;
+    border-radius:12px;
+    margin:0 0 12px;
+    overflow:hidden
+}
+
+.summary{
+    padding:15px;
+    cursor:pointer;
+    list-style:none
+}
+
+.summary::-webkit-details-marker{
+    display:none
+}
+
+.top{
+    display:flex;
+    justify-content:space-between;
+    gap:12px;
+    align-items:center
+}
+
+.left{
+    display:flex;
+    gap:9px;
+    align-items:center;
+    flex-wrap:wrap
+}
+
+.badge,
+.priority{
+    font-size:11px;
+    font-weight:800;
+    padding:5px 8px;
+    border-radius:999px
+}
+
+.badge-changed{
+    background:#fff7ed;
+    color:#9a3412
+}
+
+.badge-new{
+    background:#ecfdf5;
+    color:#047857
+}
+
+.badge-removed{
+    background:#fef2f2;
+    color:#b91c1c
+}
+
+.badge-failed{
+    background:#fef3c7;
+    color:#92400e
+}
+
+.priority-high{
+    background:#fee2e2;
+    color:#b91c1c
+}
+
+.priority-medium{
+    background:#fef3c7;
+    color:#92400e
+}
+
+.priority-low{
+    background:#f3f4f6;
+    color:#4b5563
+}
+
+.url{
+    font-size:13px;
+    color:#374151;
+    word-break:break-all
+}
+
+.field{
+    font-weight:800
+}
+
+.detail{
+    padding:0 15px 16px
+}
+
+.comparison{
+    display:grid;
+    grid-template-columns:1fr 50px 1fr;
+    gap:12px
+}
+
+.box{
+    padding:13px;
+    border-radius:10px
+}
+
+.old-box{
+    background:#fff1f2;
+    border:1px solid #fecdd3
+}
+
+.new-box{
+    background:#ecfdf5;
+    border:1px solid #a7f3d0
+}
+
+.boxlabel{
+    font-size:11px;
+    font-weight:900;
+    margin-bottom:8px
+}
+
+.old-label{
+    color:#be123c
+}
+
+.new-label{
+    color:#047857
+}
+
+.value{
+    white-space:pre-wrap;
+    word-break:break-word;
+    line-height:1.55;
+    font-size:13px;
+    max-height:420px;
+    overflow:auto
+}
+
+.arrow{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:24px;
+    color:#6b7280
+}
+
+.meta{
+    margin-top:12px;
+    color:#6b7280;
+    font-size:13px
+}
+
+.empty{
+    text-align:center;
+    padding:35px;
+    color:#6b7280
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px
+}
+
+th,
+td{
+    padding:11px;
+    border-bottom:1px solid #e5e7eb;
+    text-align:left
+}
+
+th{
+    background:#f9fafb;
+    color:#6b7280;
+    font-size:11px;
+    text-transform:uppercase
+}
+
+@media(max-width:1000px){
+
+    .cards{
+        grid-template-columns:repeat(3,1fr)
+    }
+
+    .comparison{
+        grid-template-columns:1fr
+    }
+
+    .arrow{
+        transform:rotate(90deg);
+        height:24px
+    }
+}
+
+@media(max-width:600px){
+
+    .wrap{
+        padding:15px
+    }
+
+    .cards{
+        grid-template-columns:repeat(2,1fr)
+    }
+
+    h1{
+        font-size:25px
+    }
+}
 </style>
 </head>
+
 <body>
+
 <div class="wrap">
-<header><div><h1>ExcelR Website Monitoring Dashboard</h1><div class="sub">SEO changes, page changes and crawl history</div></div><div class="status" id="status">Loading...</div></header>
+
+<header>
+
+<div>
+<h1>ExcelR Website Monitoring Dashboard</h1>
+
+<div class="sub">
+SEO changes, page changes and crawl history
+</div>
+</div>
+
+<div class="status" id="status">
+Loading...
+</div>
+
+</header>
+
+
 <div class="cards">
-<div class="card"><div class="label">Pages</div><div class="num" id="pages">—</div></div>
-<div class="card"><div class="label">New</div><div class="num" id="new">—</div></div>
-<div class="card"><div class="label">Changed</div><div class="num" id="changed">—</div></div>
-<div class="card"><div class="label">Removed</div><div class="num" id="removed">—</div></div>
-<div class="card"><div class="label">Failed</div><div class="num" id="failed">—</div></div>
-<div class="card"><div class="label">High Priority</div><div class="num" id="high">—</div></div>
+
+<div class="card">
+<div class="label">Pages</div>
+<div class="num" id="pages">—</div>
 </div>
-<div class="section"><h2>Current Changes</h2>
-<div class="toolbar"><input id="search" placeholder="Search URL, field or details..." oninput="render()"><select id="type" onchange="render()"><option value="">All types</option><option>changed</option><option>new</option><option>removed</option><option>failed</option></select><select id="field" onchange="render()"><option value="">All fields</option></select></div>
-<div id="changes"></div></div>
-<div class="section"><h2>Crawl History</h2><div style="overflow:auto"><table><thead><tr><th>Date</th><th>Pages</th><th>New</th><th>Changed</th><th>Removed</th><th>Failed</th><th>Duration</th></tr></thead><tbody id="history"></tbody></table></div></div>
+
+<div class="card">
+<div class="label">New</div>
+<div class="num" id="newCount">—</div>
 </div>
+
+<div class="card">
+<div class="label">Changed</div>
+<div class="num" id="changedCount">—</div>
+</div>
+
+<div class="card">
+<div class="label">Removed</div>
+<div class="num" id="removedCount">—</div>
+</div>
+
+<div class="card">
+<div class="label">Failed</div>
+<div class="num" id="failedCount">—</div>
+</div>
+
+<div class="card">
+<div class="label">High Priority</div>
+<div class="num" id="highCount">—</div>
+</div>
+
+</div>
+
+
+<div class="section">
+
+<h2>Current Changes</h2>
+
+<div class="toolbar">
+
+<input
+id="search"
+placeholder="Search URL, field or details..."
+oninput="renderChanges()"
+>
+
+<select
+id="type"
+onchange="renderChanges()"
+>
+
+<option value="">
+All types
+</option>
+
+<option value="changed">
+Changed
+</option>
+
+<option value="new">
+New
+</option>
+
+<option value="removed">
+Removed
+</option>
+
+<option value="failed">
+Failed
+</option>
+
+</select>
+
+
+<select
+id="field"
+onchange="renderChanges()"
+>
+
+<option value="">
+All fields
+</option>
+
+</select>
+
+</div>
+
+
+<div id="changes">
+<div class="empty">
+Loading changes...
+</div>
+</div>
+
+</div>
+
+
+<div class="section">
+
+<h2>Crawl History</h2>
+
+<div style="overflow:auto">
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>Date</th>
+<th>Pages</th>
+<th>New</th>
+<th>Changed</th>
+<th>Removed</th>
+<th>Failed</th>
+<th>Duration</th>
+
+</tr>
+
+</thead>
+
+<tbody id="history">
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+</div>
+
+
 <script>
-let changes=[],history=[];
-const esc=v=>String(v??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
-const value=v=>typeof v==="object"&&v!==null?JSON.stringify(v,null,2):String(v??"");
-function normalize(x){return{type:String(x?.type||"changed").toLowerCase(),url:x?.url||"",field:x?.field||"",priority:String(x?.priority||"low").toLowerCase(),details:x?.details||"",old:x?.old??"",new:x?.new??""}}
-function render(){
- const q=document.getElementById("search").value.toLowerCase(),t=document.getElementById("type").value,f=document.getElementById("field").value;
- const a=changes.filter(c=>{let s=(c.url+" "+c.field+" "+c.details+" "+value(c.old)+" "+value(c.new)).toLowerCase();return(!q||s.includes(q))&&(!t||c.type===t)&&(!f||c.field===f)});
- if(!a.length){document.getElementById("changes").innerHTML='<div class="empty">No matching changes detected.</div>';return}
- document.getElementById("changes").innerHTML=a.map(c=>{
-  let detail=c.type==="changed"?`<div class="comparison"><div class="box old"><div class="boxlabel">🔴 OLD / BEFORE</div><div class="value">${esc(value(c.old))}</div></div><div class="arrow">→</div><div class="box after"><div class="boxlabel">🟢 NEW / AFTER</div><div class="value">${esc(value(c.new))}</div></div></div><div class="meta">${esc(c.details)}</div>`:`<div class="meta">${esc(c.details||"Change detected.")}</div>`;
-  return `<details class="change"><summary class="summary"><div class="top"><div class="left"><span class="badge ${c.type}">${esc(c.type.toUpperCase())}</span><span class="field">${esc(c.field)}</span><span class="url">${esc(c.url)}</span></div><span class="priority ${c.priority}">${esc(c.priority.toUpperCase())}</span></div></summary><div class="detail">${detail}</div></details>`;
- }).join("");
+
+let changes = [];
+let history = [];
+
+
+/* HTML ESCAPE */
+
+function escapeHTML(value){
+
+    if(value === null || value === undefined){
+
+        return "";
+
+    }
+
+    return String(value).replace(
+
+        /[&<>"']/g,
+
+        function(match){
+
+            const map = {
+
+                "&":"&amp;",
+                "<":"&lt;",
+                ">":"&gt;",
+                '"':"&quot;",
+                "'":"&#039;"
+
+            };
+
+            return map[match];
+
+        }
+
+    );
+
 }
-function drawHistory(){document.getElementById("history").innerHTML=history.slice().reverse().map(h=>`<tr><td>${esc(h.date||h.checked_at||"")}</td><td>${esc(h.pages??"—")}</td><td>${esc(h.new??0)}</td><td>${esc(h.changed??0)}</td><td>${esc(h.removed??0)}</td><td>${esc(h.failed??0)}</td><td>${h.duration!==undefined?esc(h.duration)+" sec":"—"}</td></tr>`).join("")}
-async function get(path){let r=await fetch(path+"?v="+Date.now(),{cache:"no-store"});if(!r.ok)throw Error(path+" HTTP "+r.status);return r.json()}
-async function load(){
- try{
-  let latest=null;try{latest=await get("data/latest_diffs.json")}catch(e){}
-  try{history=await get("data/history.json")}catch(e){history=[]}
-  if(Array.isArray(latest))changes=latest.map(normalize);else if(Array.isArray(latest?.changes))changes=latest.changes.map(normalize);else if(history.length&&Array.isArray(history.at(-1)?.changes))changes=history.at(-1).changes.map(normalize);
-  let h=history.at(-1)||{};
-  pages.textContent=h.pages??"—";new.textContent=h.new??changes.filter(x=>x.type==="new").length;changed.textContent=h.changed??changes.filter(x=>x.type==="changed").length;removed.textContent=h.removed??changes.filter(x=>x.type==="removed").length;failed.textContent=h.failed??changes.filter(x=>x.type==="failed").length;high.textContent=changes.filter(x=>x.priority==="high").length;
-  let fields=[...new Set(changes.map(x=>x.field).filter(Boolean))].sort();field.innerHTML='<option value="">All fields</option>'+fields.map(x=>`<option>${esc(x)}</option>`).join("");
-  status.textContent="Monitoring data loaded";render();drawHistory();
- }catch(e){status.textContent="Data load error";document.getElementById("changes").innerHTML='<div class="empty">Could not load monitoring data.<br>'+esc(e.message)+'</div>'}
+
+
+/* VALUE FORMAT */
+
+function formatValue(value){
+
+    if(
+        value !== null &&
+        typeof value === "object"
+    ){
+
+        return JSON.stringify(
+            value,
+            null,
+            2
+        );
+
+    }
+
+    return String(
+        value ?? ""
+    );
+
 }
-load();
+
+
+/* NORMALIZE CHANGE */
+
+function normalizeChange(item){
+
+    return {
+
+        type:String(
+            item?.type || "changed"
+        ).toLowerCase(),
+
+        url:item?.url || "",
+
+        field:item?.field || "",
+
+        priority:String(
+            item?.priority || "low"
+        ).toLowerCase(),
+
+        details:item?.details || "",
+
+        old:item?.old ?? "",
+
+        new:item?.new ?? ""
+
+    };
+
+}
+
+
+/* TYPE BADGE */
+
+function typeBadge(type){
+
+    let cls = "badge-changed";
+
+    if(type === "new"){
+
+        cls = "badge-new";
+
+    }
+
+    if(type === "removed"){
+
+        cls = "badge-removed";
+
+    }
+
+    if(type === "failed"){
+
+        cls = "badge-failed";
+
+    }
+
+    return `
+
+        <span class="badge ${cls}">
+
+            ${escapeHTML(
+                type.toUpperCase()
+            )}
+
+        </span>
+
+    `;
+
+}
+
+
+/* PRIORITY */
+
+function priorityBadge(priority){
+
+    let cls = "priority-low";
+
+    if(priority === "high"){
+
+        cls = "priority-high";
+
+    }
+
+    else if(priority === "medium"){
+
+        cls = "priority-medium";
+
+    }
+
+    return `
+
+        <span class="priority ${cls}">
+
+            ${escapeHTML(
+                priority.toUpperCase()
+            )}
+
+        </span>
+
+    `;
+
+}
+
+
+/* RENDER CHANGES */
+
+function renderChanges(){
+
+    const search =
+        document
+        .getElementById("search")
+        .value
+        .toLowerCase();
+
+    const type =
+        document
+        .getElementById("type")
+        .value;
+
+    const field =
+        document
+        .getElementById("field")
+        .value;
+
+
+    const filtered =
+        changes.filter(function(change){
+
+            const text = (
+
+                change.url +
+                " " +
+                change.field +
+                " " +
+                change.details +
+                " " +
+                formatValue(change.old) +
+                " " +
+                formatValue(change.new)
+
+            ).toLowerCase();
+
+
+            return (
+
+                (!search ||
+                text.includes(search))
+
+                &&
+
+                (!type ||
+                change.type === type)
+
+                &&
+
+                (!field ||
+                change.field === field)
+
+            );
+
+        });
+
+
+    const container =
+        document.getElementById(
+            "changes"
+        );
+
+
+    if(!filtered.length){
+
+        container.innerHTML = `
+
+            <div class="empty">
+
+                No matching changes detected.
+
+            </div>
+
+        `;
+
+        return;
+
+    }
+
+
+    container.innerHTML =
+        filtered.map(function(change){
+
+            let detailsHTML = "";
+
+
+            /* CHANGED */
+
+            if(change.type === "changed"){
+
+                detailsHTML = `
+
+                    <div class="comparison">
+
+                        <div class="box old-box">
+
+                            <div class="boxlabel old-label">
+
+                                🔴 OLD / BEFORE
+
+                            </div>
+
+                            <div class="value">
+
+                                ${escapeHTML(
+                                    formatValue(
+                                        change.old
+                                    )
+                                )}
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="arrow">
+
+                            →
+
+                        </div>
+
+
+                        <div class="box new-box">
+
+                            <div class="boxlabel new-label">
+
+                                🟢 NEW / AFTER
+
+                            </div>
+
+                            <div class="value">
+
+                                ${escapeHTML(
+                                    formatValue(
+                                        change.new
+                                    )
+                                )}
+
+                            </div>
+
+                        </div>
+
+                    </div>
+
+
+                    <div class="meta">
+
+                        ${escapeHTML(
+                            change.details
+                        )}
+
+                    </div>
+
+                `;
+
+            }
+
+
+            /* NEW / REMOVED / FAILED */
+
+            else{
+
+                detailsHTML = `
+
+                    <div class="meta">
+
+                        ${escapeHTML(
+                            change.details ||
+                            "Change detected."
+                        )}
+
+                    </div>
+
+                `;
+
+            }
+
+
+            return `
+
+                <details class="change">
+
+                    <summary class="summary">
+
+                        <div class="top">
+
+                            <div class="left">
+
+                                ${typeBadge(
+                                    change.type
+                                )}
+
+                                <span class="field">
+
+                                    ${escapeHTML(
+                                        change.field
+                                    )}
+
+                                </span>
+
+                                <span class="url">
+
+                                    ${escapeHTML(
+                                        change.url
+                                    )}
+
+                                </span>
+
+                            </div>
+
+                            ${priorityBadge(
+                                change.priority
+                            )}
+
+                        </div>
+
+                    </summary>
+
+
+                    <div class="detail">
+
+                        ${detailsHTML}
+
+                    </div>
+
+                </details>
+
+            `;
+
+        }).join("");
+
+}
+
+
+/* HISTORY */
+
+function renderHistory(){
+
+    const tbody =
+        document.getElementById(
+            "history"
+        );
+
+
+    if(!history.length){
+
+        tbody.innerHTML = `
+
+            <tr>
+
+                <td colspan="7">
+
+                    No crawl history available.
+
+                </td>
+
+            </tr>
+
+        `;
+
+        return;
+
+    }
+
+
+    tbody.innerHTML =
+        history
+        .slice()
+        .reverse()
+        .map(function(item){
+
+            return `
+
+                <tr>
+
+                    <td>
+
+                        ${escapeHTML(
+                            item.date ||
+                            item.checked_at ||
+                            ""
+                        )}
+
+                    </td>
+
+                    <td>
+
+                        ${escapeHTML(
+                            item.pages ?? "—"
+                        )}
+
+                    </td>
+
+                    <td>
+
+                        ${escapeHTML(
+                            item.new ?? 0
+                        )}
+
+                    </td>
+
+                    <td>
+
+                        ${escapeHTML(
+                            item.changed ?? 0
+                        )}
+
+                    </td>
+
+                    <td>
+
+                        ${escapeHTML(
+                            item.removed ?? 0
+                        )}
+
+                    </td>
+
+                    <td>
+
+                        ${escapeHTML(
+                            item.failed ?? 0
+                        )}
+
+                    </td>
+
+                    <td>
+
+                        ${item.duration !== undefined
+                            ? escapeHTML(
+                                item.duration
+                            ) + " sec"
+                            : "—"
+                        }
+
+                    </td>
+
+                </tr>
+
+            `;
+
+        }).join("");
+
+}
+
+
+/* LOAD JSON */
+
+async function loadJSON(path){
+
+    const response =
+        await fetch(
+            path +
+            "?v=" +
+            Date.now(),
+            {
+                cache:"no-store"
+            }
+        );
+
+
+    if(!response.ok){
+
+        throw new Error(
+            path +
+            " HTTP " +
+            response.status
+        );
+
+    }
+
+
+    return await response.json();
+
+}
+
+
+/* MAIN LOAD */
+
+async function loadDashboard(){
+
+    try{
+
+        let latest = null;
+
+
+        /* LOAD LATEST DIFF */
+
+        try{
+
+            latest =
+                await loadJSON(
+                    "data/latest_diffs.json"
+                );
+
+        }
+
+        catch(error){
+
+            console.log(
+                "latest_diffs.json not found"
+            );
+
+        }
+
+
+        /* LOAD HISTORY */
+
+        try{
+
+            history =
+                await loadJSON(
+                    "data/history.json"
+                );
+
+        }
+
+        catch(error){
+
+            history = [];
+
+        }
+
+
+        /* DETERMINE CHANGES */
+
+        if(
+            Array.isArray(latest)
+        ){
+
+            changes =
+                latest.map(
+                    normalizeChange
+                );
+
+        }
+
+        else if(
+            latest &&
+            Array.isArray(
+                latest.changes
+            )
+        ){
+
+            changes =
+                latest.changes.map(
+                    normalizeChange
+                );
+
+        }
+
+        else if(
+            history.length &&
+            Array.isArray(
+                history[
+                    history.length - 1
+                ].changes
+            )
+        ){
+
+            changes =
+                history[
+                    history.length - 1
+                ].changes.map(
+                    normalizeChange
+                );
+
+        }
+
+        else{
+
+            changes = [];
+
+        }
+
+
+        /* LAST HISTORY */
+
+        const last =
+            history.length
+            ? history[
+                history.length - 1
+              ]
+            : {};
+
+
+        /* COUNTERS */
+
+        document
+        .getElementById("pages")
+        .textContent =
+            last.pages ?? "—";
+
+
+        document
+        .getElementById("newCount")
+        .textContent =
+            last.new ??
+            changes.filter(
+                x => x.type === "new"
+            ).length;
+
+
+        document
+        .getElementById("changedCount")
+        .textContent =
+            last.changed ??
+            changes.filter(
+                x => x.type === "changed"
+            ).length;
+
+
+        document
+        .getElementById("removedCount")
+        .textContent =
+            last.removed ??
+            changes.filter(
+                x => x.type === "removed"
+            ).length;
+
+
+        document
+        .getElementById("failedCount")
+        .textContent =
+            last.failed ??
+            changes.filter(
+                x => x.type === "failed"
+            ).length;
+
+
+        document
+        .getElementById("highCount")
+        .textContent =
+            changes.filter(
+                x => x.priority === "high"
+            ).length;
+
+
+        /* FIELD FILTER */
+
+        const fields =
+            [
+                ...new Set(
+                    changes
+                    .map(
+                        x => x.field
+                    )
+                    .filter(Boolean)
+                )
+            ].sort();
+
+
+        document
+        .getElementById("field")
+        .innerHTML =
+
+            '<option value="">All fields</option>' +
+
+            fields
+            .map(function(field){
+
+                return `
+
+                    <option value="${
+                        escapeHTML(field)
+                    }">
+
+                        ${
+                            escapeHTML(field)
+                        }
+
+                    </option>
+
+                `;
+
+            })
+            .join("");
+
+
+        /* STATUS */
+
+        document
+        .getElementById("status")
+        .textContent =
+            "Monitoring data loaded";
+
+
+        renderChanges();
+
+        renderHistory();
+
+    }
+
+
+    catch(error){
+
+        console.error(
+            error
+        );
+
+
+        document
+        .getElementById("status")
+        .textContent =
+            "Data load error";
+
+
+        document
+        .getElementById("changes")
+        .innerHTML = `
+
+            <div class="empty">
+
+                Could not load monitoring data.
+
+                <br><br>
+
+                ${escapeHTML(
+                    error.message
+                )}
+
+            </div>
+
+        `;
+
+    }
+
+}
+
+
+/* START */
+
+loadDashboard();
+
 </script>
+
 </body>
 </html>
