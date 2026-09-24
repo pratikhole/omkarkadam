@@ -16,588 +16,494 @@
 }
 
 body{
-
     margin:0;
-
-    font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
-
+    font-family:Arial,Helvetica,sans-serif;
     background:#f4f6f8;
-
     color:#202124;
 }
 
 .container{
-
     max-width:1500px;
-
     margin:auto;
-
     padding:30px;
 }
 
 .header{
-
     display:flex;
-
     justify-content:space-between;
-
     align-items:flex-start;
-
     gap:20px;
-
     margin-bottom:25px;
 }
 
 h1{
-
-    margin:0 0 6px 0;
-
+    margin:0 0 6px;
     font-size:32px;
 }
 
 .subtitle{
-
     color:#6b7280;
-
     font-size:14px;
 }
 
 .status{
-
     background:#e8f5e9;
-
     color:#166534;
-
     padding:9px 14px;
-
     border-radius:20px;
-
     font-size:13px;
-
     font-weight:bold;
 }
 
 
-/* =====================================================
-   SUMMARY CARDS
-===================================================== */
+/* ==============================
+   CARDS
+============================== */
 
 .cards{
-
     display:grid;
-
-    grid-template-columns:
-        repeat(6,1fr);
-
+    grid-template-columns:repeat(6,1fr);
     gap:12px;
-
     margin-bottom:25px;
 }
 
 .card{
-
     background:#fff;
-
-    border:
-        1px solid #e5e7eb;
-
+    border:1px solid #e5e7eb;
     border-radius:12px;
-
     padding:17px;
-
-    box-shadow:
-        0 2px 7px rgba(0,0,0,.04);
+    box-shadow:0 2px 7px rgba(0,0,0,.04);
 }
 
 .card-label{
-
     font-size:11px;
-
     color:#6b7280;
-
     font-weight:bold;
-
     text-transform:uppercase;
 }
 
 .card-number{
-
     font-size:28px;
-
     font-weight:800;
-
     margin-top:7px;
 }
 
 
-/* =====================================================
+/* ==============================
    SECTION
-===================================================== */
+============================== */
 
 .section{
-
     background:#fff;
-
-    border:
-        1px solid #e5e7eb;
-
+    border:1px solid #e5e7eb;
     border-radius:14px;
-
     padding:20px;
-
     margin-bottom:22px;
-
-    box-shadow:
-        0 2px 7px rgba(0,0,0,.04);
+    box-shadow:0 2px 7px rgba(0,0,0,.04);
 }
 
 .section h2{
-
-    margin:
-        0 0 15px 0;
-
+    margin:0 0 15px;
     font-size:21px;
 }
 
 
-/* =====================================================
+/* ==============================
    FILTERS
-===================================================== */
+============================== */
 
 .filters{
-
     display:flex;
-
     gap:10px;
-
     flex-wrap:wrap;
-
     margin-bottom:18px;
 }
 
 input,
 select{
-
-    padding:
-        10px 12px;
-
-    border:
-        1px solid #d1d5db;
-
+    padding:10px 12px;
+    border:1px solid #d1d5db;
     border-radius:8px;
-
     background:#fff;
-
     font-size:14px;
 }
 
 input{
-
     flex:1;
-
     min-width:280px;
 }
 
 
-/* =====================================================
+/* ==============================
    CHANGE CARD
-===================================================== */
+============================== */
 
 .change-card{
-
-    border:
-        1px solid #e5e7eb;
-
+    border:1px solid #e5e7eb;
     border-radius:12px;
-
-    margin-bottom:12px;
-
+    margin-bottom:14px;
     overflow:hidden;
-
     background:#fff;
 }
 
 .change-summary{
-
     padding:16px;
-
     cursor:pointer;
-
     list-style:none;
 }
 
 .change-summary::-webkit-details-marker{
-
     display:none;
 }
 
 .summary-row{
-
     display:flex;
-
     justify-content:space-between;
-
     align-items:center;
-
     gap:15px;
 }
 
 .summary-left{
-
     display:flex;
-
     align-items:center;
-
     gap:9px;
-
     flex-wrap:wrap;
 }
 
 .badge{
-
-    padding:
-        5px 9px;
-
+    padding:5px 9px;
     border-radius:20px;
-
     font-size:10px;
-
     font-weight:800;
 }
 
 .badge-changed{
-
     background:#fff7ed;
-
     color:#9a3412;
 }
 
 .badge-new{
-
     background:#ecfdf5;
-
     color:#047857;
 }
 
 .badge-removed{
-
     background:#fef2f2;
-
     color:#b91c1c;
 }
 
 .badge-failed{
-
     background:#fef3c7;
-
     color:#92400e;
 }
 
 .priority{
-
-    padding:
-        5px 9px;
-
+    padding:5px 9px;
     border-radius:20px;
-
     font-size:10px;
-
     font-weight:800;
 }
 
 .priority-high{
-
     background:#fee2e2;
-
     color:#b91c1c;
 }
 
 .priority-medium{
-
     background:#fef3c7;
-
     color:#92400e;
 }
 
 .priority-low{
-
     background:#f3f4f6;
-
     color:#4b5563;
 }
 
 .field{
-
     font-weight:800;
-
     font-size:14px;
 }
 
 .url{
-
     font-size:13px;
-
     color:#374151;
-
     word-break:break-all;
 }
 
 .change-body{
-
-    padding:
-        0 16px 18px 16px;
+    padding:0 16px 20px;
 }
 
 
-/* =====================================================
+/* ==============================
    OLD / NEW
-===================================================== */
+============================== */
 
 .comparison{
-
     display:grid;
-
-    grid-template-columns:
-        1fr 55px 1fr;
-
+    grid-template-columns:1fr 50px 1fr;
     gap:12px;
-
     align-items:stretch;
 }
 
 .value-box{
-
     border-radius:10px;
-
     padding:14px;
-
     min-width:0;
 }
 
 .old-box{
-
     background:#fff1f2;
-
-    border:
-        1px solid #fecdd3;
+    border:1px solid #fecdd3;
 }
 
 .new-box{
-
     background:#ecfdf5;
-
-    border:
-        1px solid #a7f3d0;
+    border:1px solid #a7f3d0;
 }
 
 .box-title{
-
     font-size:11px;
-
     font-weight:900;
-
     margin-bottom:10px;
 }
 
 .old-title{
-
     color:#be123c;
 }
 
 .new-title{
-
     color:#047857;
 }
 
 .value{
-
     white-space:pre-wrap;
-
     word-break:break-word;
-
     line-height:1.55;
-
     font-size:13px;
-
     max-height:450px;
-
     overflow:auto;
 }
 
 .arrow{
-
     display:flex;
-
     justify-content:center;
-
     align-items:center;
-
     font-size:28px;
-
     color:#6b7280;
 }
 
 
-/* =====================================================
+/* ==============================
+   HIGHLIGHTED CONTENT
+============================== */
+
+.highlight-section{
+    margin-top:20px;
+}
+
+.highlight-title{
+    font-size:14px;
+    font-weight:800;
+    margin-bottom:10px;
+}
+
+.highlight-box{
+    border:1px solid #e5e7eb;
+    border-radius:10px;
+    padding:15px;
+    background:#fafafa;
+}
+
+.highlight-row{
+    margin-bottom:12px;
+}
+
+.highlight-row:last-child{
+    margin-bottom:0;
+}
+
+.highlight-label{
+    font-size:11px;
+    font-weight:900;
+    margin-bottom:6px;
+}
+
+.removed-label{
+    color:#be123c;
+}
+
+.added-label{
+    color:#047857;
+}
+
+.highlight-content{
+    line-height:1.65;
+    font-size:13px;
+    white-space:pre-wrap;
+    word-break:break-word;
+}
+
+.word-removed{
+    background:#fecdd3;
+    color:#9f1239;
+    text-decoration:line-through;
+    padding:1px 3px;
+    border-radius:3px;
+}
+
+.word-added{
+    background:#bbf7d0;
+    color:#166534;
+    padding:1px 3px;
+    border-radius:3px;
+}
+
+
+/* ==============================
    DIFF
-===================================================== */
+============================== */
 
 .diff-section{
-
-    margin-top:16px;
+    margin-top:18px;
 }
 
 .diff-title{
-
     font-size:13px;
-
     font-weight:800;
-
     margin-bottom:8px;
 }
 
 .diff-box{
-
     background:#f8fafc;
-
-    border:
-        1px solid #e5e7eb;
-
+    border:1px solid #e5e7eb;
     border-radius:9px;
-
     padding:14px;
-
-    max-height:450px;
-
+    max-height:400px;
     overflow:auto;
 }
 
 .diff-box pre{
-
     margin:0;
-
     white-space:pre-wrap;
-
     word-break:break-word;
-
-    font-family:
-        Consolas,
-        monospace;
-
+    font-family:Consolas,monospace;
     font-size:12px;
-
     line-height:1.55;
 }
 
 .meta{
-
     margin-top:12px;
-
     color:#6b7280;
-
     font-size:13px;
 }
 
 
-/* =====================================================
+/* ==============================
+   LEGEND
+============================== */
+
+.legend{
+    display:flex;
+    gap:15px;
+    flex-wrap:wrap;
+    margin-bottom:12px;
+    font-size:12px;
+    color:#6b7280;
+}
+
+.legend-item{
+    display:flex;
+    align-items:center;
+    gap:5px;
+}
+
+.legend-red{
+    width:13px;
+    height:13px;
+    background:#fecdd3;
+    border-radius:3px;
+}
+
+.legend-green{
+    width:13px;
+    height:13px;
+    background:#bbf7d0;
+    border-radius:3px;
+}
+
+
+/* ==============================
    EMPTY
-===================================================== */
+============================== */
 
 .empty{
-
     text-align:center;
-
     padding:40px;
-
     color:#6b7280;
 }
 
 
-/* =====================================================
-   HISTORY TABLE
-===================================================== */
+/* ==============================
+   TABLE
+============================== */
 
 .table-wrap{
-
     overflow:auto;
 }
 
 table{
-
     width:100%;
-
     border-collapse:collapse;
-
     font-size:13px;
 }
 
 th,
 td{
-
     padding:11px;
-
-    border-bottom:
-        1px solid #e5e7eb;
-
+    border-bottom:1px solid #e5e7eb;
     text-align:left;
 }
 
 th{
-
     background:#f9fafb;
-
     color:#6b7280;
-
     font-size:11px;
-
     text-transform:uppercase;
 }
 
 
-/* =====================================================
+/* ==============================
    RESPONSIVE
-===================================================== */
+============================== */
 
 @media(max-width:1000px){
 
     .cards{
-
-        grid-template-columns:
-            repeat(3,1fr);
+        grid-template-columns:repeat(3,1fr);
     }
 
     .comparison{
-
         grid-template-columns:1fr;
     }
 
     .arrow{
-
         height:25px;
-
-        transform:
-            rotate(90deg);
+        transform:rotate(90deg);
     }
 }
 
 @media(max-width:600px){
 
     .container{
-
         padding:15px;
     }
 
     .cards{
-
-        grid-template-columns:
-            repeat(2,1fr);
+        grid-template-columns:repeat(2,1fr);
     }
 
     h1{
-
         font-size:25px;
     }
 }
@@ -613,9 +519,9 @@ th{
 <div class="container">
 
 
-<!-- =====================================================
+<!-- ==============================
      HEADER
-===================================================== -->
+============================== -->
 
 <div class="header">
 
@@ -642,9 +548,9 @@ th{
 
 
 
-<!-- =====================================================
+<!-- ==============================
      SUMMARY
-===================================================== -->
+============================== -->
 
 <div class="cards">
 
@@ -749,9 +655,9 @@ th{
 
 
 
-<!-- =====================================================
+<!-- ==============================
      CURRENT CHANGES
-===================================================== -->
+============================== -->
 
 <div class="section">
 
@@ -781,7 +687,7 @@ th{
                 All types
             </option>
 
-            <option value="changed">
+            <option value="changed" selected>
                 Changed
             </option>
 
@@ -815,12 +721,34 @@ th{
     </div>
 
 
+    <div
+        class="legend"
+    >
+
+        <div class="legend-item">
+
+            <span class="legend-red"></span>
+
+            Removed text
+
+        </div>
+
+
+        <div class="legend-item">
+
+            <span class="legend-green"></span>
+
+            Added text
+
+        </div>
+
+    </div>
+
+
     <div id="changesContainer">
 
         <div class="empty">
-
             Loading changes...
-
         </div>
 
     </div>
@@ -830,9 +758,9 @@ th{
 
 
 
-<!-- =====================================================
+<!-- ==============================
      HISTORY
-===================================================== -->
+============================== -->
 
 <div class="section">
 
@@ -847,38 +775,23 @@ th{
 
         <table>
 
-
             <thead>
 
                 <tr>
 
-                    <th>
-                        Date
-                    </th>
+                    <th>Date</th>
 
-                    <th>
-                        Pages
-                    </th>
+                    <th>Pages</th>
 
-                    <th>
-                        New
-                    </th>
+                    <th>New</th>
 
-                    <th>
-                        Changed
-                    </th>
+                    <th>Changed</th>
 
-                    <th>
-                        Removed
-                    </th>
+                    <th>Removed</th>
 
-                    <th>
-                        Failed
-                    </th>
+                    <th>Failed</th>
 
-                    <th>
-                        Duration
-                    </th>
+                    <th>Duration</th>
 
                 </tr>
 
@@ -891,12 +804,9 @@ th{
 
             </tbody>
 
-
         </table>
 
-
     </div>
-
 
 </div>
 
@@ -1015,30 +925,202 @@ async function loadJSON(file){
 
 
 /* =====================================================
+   TOKENIZE TEXT
+===================================================== */
+
+function tokenize(text){
+
+    return String(
+        text || ""
+    ).split(
+        /(\s+|[,.!?;:()[\]{}"'`]+)/g
+    ).filter(
+        function(item){
+
+            return item !== "";
+
+        }
+    );
+
+}
+
+
+/* =====================================================
+   WORD LEVEL DIFF
+===================================================== */
+
+function makeWordDiff(oldText,newText){
+
+    const oldTokens =
+        tokenize(oldText);
+
+    const newTokens =
+        tokenize(newText);
+
+
+    const oldLength =
+        oldTokens.length;
+
+    const newLength =
+        newTokens.length;
+
+
+    /*
+       LCS MATRIX
+
+       Used to identify unchanged
+       portions between OLD and NEW.
+    */
+
+    const matrix =
+        Array(
+            oldLength + 1
+        )
+        .fill(null)
+        .map(
+            function(){
+
+                return Array(
+                    newLength + 1
+                ).fill(0);
+
+            }
+        );
+
+
+    for(
+        let i = oldLength - 1;
+        i >= 0;
+        i--
+    ){
+
+        for(
+            let j = newLength - 1;
+            j >= 0;
+            j--
+        ){
+
+            if(
+                oldTokens[i] ===
+                newTokens[j]
+            ){
+
+                matrix[i][j] =
+                    matrix[i + 1][j + 1] + 1;
+
+            }
+
+            else{
+
+                matrix[i][j] =
+                    Math.max(
+                        matrix[i + 1][j],
+                        matrix[i][j + 1]
+                    );
+
+            }
+
+        }
+
+    }
+
+
+    const removed = [];
+
+    const added = [];
+
+    let i = 0;
+
+    let j = 0;
+
+
+    while(
+        i < oldLength &&
+        j < newLength
+    ){
+
+        if(
+            oldTokens[i] ===
+            newTokens[j]
+        ){
+
+            i++;
+            j++;
+
+        }
+
+        else if(
+            matrix[i + 1][j] >=
+            matrix[i][j + 1]
+        ){
+
+            removed.push(
+                oldTokens[i]
+            );
+
+            i++;
+
+        }
+
+        else{
+
+            added.push(
+                newTokens[j]
+            );
+
+            j++;
+
+        }
+
+    }
+
+
+    while(
+        i < oldLength
+    ){
+
+        removed.push(
+            oldTokens[i]
+        );
+
+        i++;
+
+    }
+
+
+    while(
+        j < newLength
+    ){
+
+        added.push(
+            newTokens[j]
+        );
+
+        j++;
+
+    }
+
+
+    return {
+
+        removed:
+            removed.join(""),
+
+        added:
+            added.join("")
+
+    };
+
+}
+
+
+/* =====================================================
    CONVERT latest_diffs.json
 ===================================================== */
 
 function convertLatestDiffs(data){
 
     const result = [];
-
-
-    /*
-       IMPORTANT:
-
-       latest_diffs.json has this structure:
-
-       {
-           "URL": [
-               {
-                   "field":"Content",
-                   "before":"...",
-                   "after":"...",
-                   "diff":"..."
-               }
-           ]
-       }
-    */
 
 
     if(
@@ -1053,7 +1135,7 @@ function convertLatestDiffs(data){
 
 
     Object.entries(data).forEach(
-        function([url, records]){
+        function([url,records]){
 
 
             if(
@@ -1216,21 +1298,27 @@ function getBadge(type){
         "badge-changed";
 
 
-    if(type === "new"){
+    if(
+        type === "new"
+    ){
 
         className =
             "badge-new";
 
     }
 
-    else if(type === "removed"){
+    else if(
+        type === "removed"
+    ){
 
         className =
             "badge-removed";
 
     }
 
-    else if(type === "failed"){
+    else if(
+        type === "failed"
+    ){
 
         className =
             "badge-failed";
@@ -1265,14 +1353,18 @@ function getPriority(priority){
         "priority-low";
 
 
-    if(priority === "high"){
+    if(
+        priority === "high"
+    ){
 
         className =
             "priority-high";
 
     }
 
-    else if(priority === "medium"){
+    else if(
+        priority === "medium"
+    ){
 
         className =
             "priority-medium";
@@ -1293,6 +1385,128 @@ function getPriority(priority){
         </span>
 
     `;
+
+}
+
+
+/* =====================================================
+   RENDER HIGHLIGHTED DIFFERENCE
+===================================================== */
+
+function renderHighlightedDifference(
+    oldText,
+    newText
+){
+
+    const result =
+        makeWordDiff(
+            oldText,
+            newText
+        );
+
+
+    let html = "";
+
+
+    if(
+        result.removed
+    ){
+
+        html += `
+
+            <div class="highlight-row">
+
+                <div
+                    class="highlight-label removed-label"
+                >
+
+                    🔴 REMOVED FROM PAGE
+
+                </div>
+
+
+                <div
+                    class="highlight-content"
+                >
+
+                    <span
+                        class="word-removed"
+                    >
+
+                        ${escapeHTML(
+                            result.removed
+                        )}
+
+                    </span>
+
+                </div>
+
+            </div>
+
+        `;
+
+    }
+
+
+    if(
+        result.added
+    ){
+
+        html += `
+
+            <div class="highlight-row">
+
+                <div
+                    class="highlight-label added-label"
+                >
+
+                    🟢 ADDED TO PAGE
+
+                </div>
+
+
+                <div
+                    class="highlight-content"
+                >
+
+                    <span
+                        class="word-added"
+                    >
+
+                        ${escapeHTML(
+                            result.added
+                        )}
+
+                    </span>
+
+                </div>
+
+            </div>
+
+        `;
+
+    }
+
+
+    if(
+        !result.removed &&
+        !result.added
+    ){
+
+        html = `
+
+            <div class="empty">
+
+                No textual difference detected.
+
+            </div>
+
+        `;
+
+    }
+
+
+    return html;
 
 }
 
@@ -1342,9 +1556,13 @@ function renderChanges(){
                     " " +
                     change.details +
                     " " +
-                    formatValue(change.old) +
+                    formatValue(
+                        change.old
+                    ) +
                     " " +
-                    formatValue(change.new)
+                    formatValue(
+                        change.new
+                    )
 
                 ).toLowerCase();
 
@@ -1411,9 +1629,9 @@ function renderChanges(){
                 let body = "";
 
 
-                /* =====================================
+                /* =================================
                    CHANGED
-                ===================================== */
+                ================================= */
 
                 if(
                     change.type ===
@@ -1489,6 +1707,33 @@ function renderChanges(){
                         </div>
 
 
+                        <div
+                            class="highlight-section"
+                        >
+
+                            <div
+                                class="highlight-title"
+                            >
+
+                                📍 EXACT CONTENT CHANGES
+
+                            </div>
+
+
+                            <div
+                                class="highlight-box"
+                            >
+
+                                ${renderHighlightedDifference(
+                                    change.old,
+                                    change.new
+                                )}
+
+                            </div>
+
+                        </div>
+
+
                         ${
                             change.diff
                             ?
@@ -1503,7 +1748,7 @@ function renderChanges(){
                                     class="diff-title"
                                 >
 
-                                    Exact Diff
+                                    Technical Diff
 
                                 </div>
 
@@ -1542,12 +1787,13 @@ function renderChanges(){
                 }
 
 
-                /* =====================================
+                /* =================================
                    NEW
-                ===================================== */
+                ================================= */
 
                 else if(
-                    change.type === "new"
+                    change.type ===
+                    "new"
                 ){
 
                     body = `
@@ -1563,12 +1809,13 @@ function renderChanges(){
                 }
 
 
-                /* =====================================
+                /* =================================
                    REMOVED
-                ===================================== */
+                ================================= */
 
                 else if(
-                    change.type === "removed"
+                    change.type ===
+                    "removed"
                 ){
 
                     body = `
@@ -1584,9 +1831,9 @@ function renderChanges(){
                 }
 
 
-                /* =====================================
+                /* =================================
                    FAILED
-                ===================================== */
+                ================================= */
 
                 else{
 
@@ -1688,7 +1935,6 @@ function renderChanges(){
 ===================================================== */
 
 function renderHistory(){
-
 
     const container =
         document.getElementById(
@@ -1823,11 +2069,10 @@ function renderHistory(){
 
 
 /* =====================================================
-   FIELD DROPDOWN
+   FIELD FILTER
 ===================================================== */
 
 function buildFieldFilter(){
-
 
     const fields =
         [
@@ -1857,9 +2102,7 @@ function buildFieldFilter(){
     select.innerHTML = `
 
         <option value="">
-
             All fields
-
         </option>
 
     `;
@@ -1873,14 +2116,11 @@ function buildFieldFilter(){
                     "option"
                 );
 
-
             option.value =
                 field;
 
-
             option.textContent =
                 field;
-
 
             select.appendChild(
                 option
@@ -1900,13 +2140,10 @@ async function loadDashboard(){
 
     try{
 
-
         let latest = null;
 
 
-        /* =========================================
-           LOAD latest_diffs.json
-        ========================================= */
+        /* LOAD LATEST DIFF */
 
         try{
 
@@ -1926,9 +2163,7 @@ async function loadDashboard(){
         }
 
 
-        /* =========================================
-           LOAD HISTORY
-        ========================================= */
+        /* LOAD HISTORY */
 
         try{
 
@@ -1946,9 +2181,7 @@ async function loadDashboard(){
         }
 
 
-        /* =========================================
-           CONVERT ACTUAL latest_diffs.json
-        ========================================= */
+        /* CONVERT CURRENT FORMAT */
 
         if(
             latest &&
@@ -1964,9 +2197,7 @@ async function loadDashboard(){
         }
 
 
-        /* =========================================
-           ARRAY FALLBACK
-        ========================================= */
+        /* ARRAY FORMAT FALLBACK */
 
         else if(
             Array.isArray(latest)
@@ -1980,9 +2211,7 @@ async function loadDashboard(){
         }
 
 
-        /* =========================================
-           HISTORY FALLBACK
-        ========================================= */
+        /* HISTORY FALLBACK */
 
         else if(
             history.length > 0 &&
@@ -2003,26 +2232,17 @@ async function loadDashboard(){
         }
 
 
-        /* =========================================
-           LAST CRAWL
-        ========================================= */
-
         const last =
             history.length > 0
             ?
-
             history[
                 history.length - 1
             ]
-
             :
-
             {};
 
 
-        /* =========================================
-           SUMMARY
-        ========================================= */
+        /* SUMMARY */
 
         document
         .getElementById(
@@ -2099,25 +2319,12 @@ async function loadDashboard(){
             ).length;
 
 
-        /* =========================================
-           FIELD FILTER
-        ========================================= */
-
         buildFieldFilter();
-
-
-        /* =========================================
-           RENDER
-        ========================================= */
 
         renderChanges();
 
         renderHistory();
 
-
-        /* =========================================
-           STATUS
-        ========================================= */
 
         document
         .getElementById(
@@ -2131,9 +2338,7 @@ async function loadDashboard(){
 
     catch(error){
 
-        console.error(
-            error
-        );
+        console.error(error);
 
 
         document
@@ -2169,9 +2374,7 @@ async function loadDashboard(){
 }
 
 
-/* =====================================================
-   START
-===================================================== */
+/* START */
 
 loadDashboard();
 
