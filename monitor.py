@@ -3419,7 +3419,7 @@ function render() {{
                         </div>
 
 
-                        ${
+                        ${{
                             item.field ===
                             "Content"
 
@@ -3477,10 +3477,10 @@ function render() {{
                             </div>
 
                             `
-                        }
+                        }}
 
 
-                        ${
+                        ${{
                             item.diff
 
                             ?
@@ -3511,7 +3511,7 @@ ${{escapeHTML(
 
                             ""
 
-                        }
+                        }}
 
 
                         <div class="meta">
@@ -3646,7 +3646,7 @@ ${{escapeHTML(
 
                 `;
 
-            }
+            }}
         )
         .join("");
 
