@@ -1959,7 +1959,7 @@ def make_dashboard(
 <meta name="viewport"
       content="width=device-width,initial-scale=1">
 
-<title>ExcelR Website Monitoring Dashboard</title>
+<title>Dashboard</title>
 
 
 <style>
@@ -2596,7 +2596,7 @@ th {{
 <div>
 
 <h1>
-ExcelR Website Monitoring Dashboard
+Dashboard
 </h1>
 
 <div class="subtitle">
