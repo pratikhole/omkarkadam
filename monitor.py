@@ -1816,1905 +1816,339 @@ def make_dashboard(
     removed,
     diffs,
 ):
+    """Generate a lightweight dashboard.
 
-    now = datetime.now(
-        timezone.utc
-    ).strftime(
-        "%Y-%m-%d %H:%M UTC"
-    )
+    The old dashboard embedded full before/after content for every change into
+    dashboard.html and ran an expensive browser-side word diff for all rows.
+    With hundreds of content changes this could exhaust Chrome memory.
 
+    This version embeds only lightweight change metadata. Full details are
+    written to one small JSON file per changed URL and loaded only when the
+    user opens a change.
+    """
 
-    new_count = sum(
-        c["type"] == "new"
-        for c in changes
-    )
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
-
-    changed_count = sum(
-        c["type"] == "changed"
-        for c in changes
-    )
-
-
-    high_count = sum(
-        c.get("priority") == "high"
-        for c in changes
-    )
-
-
-    # --------------------------------------------------------
-    # FIELD COUNTS
-    # --------------------------------------------------------
+    new_count = sum(c.get("type") == "new" for c in changes)
+    changed_count = sum(c.get("type") == "changed" for c in changes)
+    high_count = sum(c.get("priority") == "high" for c in changes)
 
     field_counts = {
-
-        label:
-            sum(
-                c["type"] == "changed"
-                and c["field"] == label
-                for c in changes
-            )
-
+        label: sum(
+            c.get("type") == "changed" and c.get("field") == label
+            for c in changes
+        )
         for _, label, _ in FIELDS
-
     }
 
+    # ------------------------------------------------------------
+    # Store detailed change data outside dashboard.html.
+    # One file per changed URL keeps the dashboard itself tiny.
+    # ------------------------------------------------------------
+    details_dir = DATA_DIR / "diff_details"
+    details_dir.mkdir(parents=True, exist_ok=True)
 
-    # --------------------------------------------------------
-    # CHANGE DATA FOR JS
-    # --------------------------------------------------------
+    wanted_files = set()
 
-    dashboard_changes = []
-
-
-    for change in changes[
-        :MAX_DASHBOARD_ROWS
-    ]:
-
-        item = dict(change)
-
-
-        url = change["url"]
-
-        field = change.get(
-            "field",
-            ""
+    for url, records in diffs.items():
+        filename = hashlib.sha256(url.encode("utf-8")).hexdigest() + ".json"
+        wanted_files.add(filename)
+        detail_path = details_dir / filename
+        detail_path.write_text(
+            json.dumps(
+                {
+                    "url": url,
+                    "records": records,
+                },
+                ensure_ascii=False,
+                separators=(",", ":"),
+            ),
+            encoding="utf-8",
         )
 
+    # Remove old detail files that are no longer part of the current crawl.
+    for old_file in details_dir.glob("*.json"):
+        if old_file.name not in wanted_files:
+            try:
+                old_file.unlink()
+            except OSError:
+                pass
 
-        if (
-            change["type"] == "changed"
-            and url in diffs
-        ):
+    # Keep a tiny index so the directory always has a tracked file.
+    (details_dir / "index.json").write_text(
+        json.dumps(
+            {
+                "generated_at": now,
+                "files": sorted(wanted_files),
+            },
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ),
+        encoding="utf-8",
+    )
 
-            records = [
+    # ------------------------------------------------------------
+    # Only lightweight data goes into the HTML.
+    # ------------------------------------------------------------
+    dashboard_changes = []
 
-                record
+    for change in changes[:MAX_DASHBOARD_ROWS]:
+        item = {
+            "type": change.get("type", ""),
+            "url": change.get("url", ""),
+            "field": change.get("field", ""),
+            "details": change.get("details", ""),
+            "priority": change.get("priority", "low"),
+        }
 
-                for record in diffs[url]
-
-                if record["field"] == field
-
-            ]
-
-
-            if records:
-
-                record = records[0]
-
-                item["before"] = (
-                    record.get(
-                        "before",
-                        ""
-                    )
-                )
-
-                item["after"] = (
-                    record.get(
-                        "after",
-                        ""
-                    )
-                )
-
-                item["diff"] = (
-                    record.get(
-                        "diff",
-                        ""
-                    )
-                )
-
+        url = item["url"]
+        if item["type"] == "changed" and url in diffs:
+            item["detail_file"] = hashlib.sha256(
+                url.encode("utf-8")
+            ).hexdigest() + ".json"
 
         dashboard_changes.append(item)
 
-
     changes_json = json.dumps(
         dashboard_changes,
-        ensure_ascii=False
+        ensure_ascii=False,
+        separators=(",", ":"),
     )
 
-
-    # --------------------------------------------------------
-    # HISTORY
-    # --------------------------------------------------------
-
-    history_json = json.dumps(
-        history,
-        ensure_ascii=False
+    history_json = json.dumps(history, ensure_ascii=False, separators=(",", ":"))
+    fields_json = json.dumps(
+        [label for _, label, _ in FIELDS],
+        ensure_ascii=False,
+        separators=(",", ":"),
     )
 
+    field_cards = "".join(
+        f"""
+        <div class="card">
+            <div class="card-label">{escape(label)}</div>
+            <div class="card-number">{field_counts.get(label, 0)}</div>
+        </div>
+        """
+        for _, label, _ in FIELDS
+    )
 
-    # --------------------------------------------------------
-    # HTML
-    # --------------------------------------------------------
+    history_rows = "".join(
+        f"""
+        <tr>
+            <td>{escape(str(item.get("checked_at", "")))}</td>
+            <td>{item.get("pages", 0)}</td>
+            <td>{item.get("new", 0)}</td>
+            <td>{item.get("changed", 0)}</td>
+            <td>{item.get("removed", 0)}</td>
+            <td>{item.get("failed", 0)}</td>
+            <td>{item.get("duration", 0)} sec</td>
+        </tr>
+        """
+        for item in reversed(history)
+    )
 
-    html = f"""
-<!DOCTYPE html>
-
+    html = """<!DOCTYPE html>
 <html lang="en">
-
 <head>
-
 <meta charset="UTF-8">
-
-<meta name="viewport"
-      content="width=device-width,initial-scale=1">
-
-<title>Dashboard</title>
-
-
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ExcelR Website Monitoring Dashboard</title>
 <style>
-
-* {{
-    box-sizing:border-box;
-}}
-
-body {{
-
-    margin:0;
-
-    font-family:
-        Arial,
-        Helvetica,
-        sans-serif;
-
-    background:#f4f6f8;
-
-    color:#202124;
-
-}}
-
-.container {{
-
-    max-width:1500px;
-
-    margin:auto;
-
-    padding:30px;
-
-}}
-
-.header {{
-
-    display:flex;
-
-    justify-content:space-between;
-
-    align-items:flex-start;
-
-    margin-bottom:25px;
-
-}}
-
-h1 {{
-
-    margin:0 0 6px;
-
-    font-size:32px;
-
-}}
-
-.subtitle {{
-
-    color:#6b7280;
-
-    font-size:14px;
-
-}}
-
-.status {{
-
-    background:#e8f5e9;
-
-    color:#166534;
-
-    padding:9px 14px;
-
-    border-radius:20px;
-
-    font-size:13px;
-
-    font-weight:bold;
-
-}}
-
-.cards {{
-
-    display:grid;
-
-    grid-template-columns:
-        repeat(6,1fr);
-
-    gap:12px;
-
-    margin-bottom:20px;
-
-}}
-
-.card {{
-
-    background:#fff;
-
-    border:1px solid #e5e7eb;
-
-    border-radius:12px;
-
-    padding:17px;
-
-    box-shadow:
-        0 2px 7px rgba(0,0,0,.04);
-
-}}
-
-.card-label {{
-
-    font-size:11px;
-
-    color:#6b7280;
-
-    font-weight:bold;
-
-    text-transform:uppercase;
-
-}}
-
-.card-number {{
-
-    font-size:28px;
-
-    font-weight:800;
-
-    margin-top:7px;
-
-}}
-
-.section {{
-
-    background:#fff;
-
-    border:1px solid #e5e7eb;
-
-    border-radius:14px;
-
-    padding:20px;
-
-    margin-bottom:22px;
-
-}}
-
-.section h2 {{
-
-    margin:0 0 15px;
-
-    font-size:21px;
-
-}}
-
-.filters {{
-
-    display:flex;
-
-    gap:10px;
-
-    flex-wrap:wrap;
-
-    margin-bottom:15px;
-
-}}
-
-input,
-select {{
-
-    padding:10px 12px;
-
-    border:
-        1px solid #d1d5db;
-
-    border-radius:8px;
-
-    background:#fff;
-
-    font-size:14px;
-
-}}
-
-input {{
-
-    flex:1;
-
-    min-width:280px;
-
-}}
-
-.change-card {{
-
-    border:
-        1px solid #e5e7eb;
-
-    border-radius:12px;
-
-    margin-bottom:14px;
-
-    overflow:hidden;
-
-}}
-
-.change-summary {{
-
-    padding:15px;
-
-    cursor:pointer;
-
-    list-style:none;
-
-}}
-
-.change-summary::-webkit-details-marker {{
-
-    display:none;
-
-}}
-
-.summary-row {{
-
-    display:flex;
-
-    justify-content:space-between;
-
-    gap:12px;
-
-}}
-
-.summary-left {{
-
-    display:flex;
-
-    gap:8px;
-
-    flex-wrap:wrap;
-
-    align-items:center;
-
-}}
-
-.badge {{
-
-    padding:5px 9px;
-
-    border-radius:20px;
-
-    font-size:10px;
-
-    font-weight:bold;
-
-}}
-
-.changed {{
-
-    background:#fff7ed;
-
-    color:#9a3412;
-
-}}
-
-.new {{
-
-    background:#ecfdf5;
-
-    color:#047857;
-
-}}
-
-.removed {{
-
-    background:#fef2f2;
-
-    color:#b91c1c;
-
-}}
-
-.failed {{
-
-    background:#fef3c7;
-
-    color:#92400e;
-
-}}
-
-.priority-high {{
-
-    background:#fee2e2;
-
-    color:#b91c1c;
-
-}}
-
-.priority-medium {{
-
-    background:#fef3c7;
-
-    color:#92400e;
-
-}}
-
-.priority-low {{
-
-    background:#f3f4f6;
-
-    color:#4b5563;
-
-}}
-
-.badge,
-.priority {{
-
-    padding:5px 9px;
-
-    border-radius:20px;
-
-    font-size:10px;
-
-    font-weight:bold;
-
-}}
-
-.field {{
-
-    font-weight:800;
-
-}}
-
-.url {{
-
-    font-size:13px;
-
-    color:#374151;
-
-    word-break:break-all;
-
-}}
-
-.change-body {{
-
-    padding:0 15px 20px;
-
-}}
-
-.comparison {{
-
-    display:grid;
-
-    grid-template-columns:
-        1fr 50px 1fr;
-
-    gap:12px;
-
-}}
-
-.value-box {{
-
-    border-radius:10px;
-
-    padding:14px;
-
-    min-width:0;
-
-}}
-
-.old-box {{
-
-    background:#fff1f2;
-
-    border:
-        1px solid #fecdd3;
-
-}}
-
-.new-box {{
-
-    background:#ecfdf5;
-
-    border:
-        1px solid #a7f3d0;
-
-}}
-
-.box-title {{
-
-    font-size:11px;
-
-    font-weight:900;
-
-    margin-bottom:9px;
-
-}}
-
-.old-title {{
-
-    color:#be123c;
-
-}}
-
-.new-title {{
-
-    color:#047857;
-
-}}
-
-.value {{
-
-    white-space:pre-wrap;
-
-    word-break:break-word;
-
-    line-height:1.55;
-
-    font-size:13px;
-
-    max-height:450px;
-
-    overflow:auto;
-
-}}
-
-.arrow {{
-
-    display:flex;
-
-    justify-content:center;
-
-    align-items:center;
-
-    font-size:28px;
-
-    color:#6b7280;
-
-}}
-
-.exact {{
-
-    margin-top:18px;
-
-}}
-
-.exact-title {{
-
-    font-size:14px;
-
-    font-weight:800;
-
-    margin-bottom:9px;
-
-}}
-
-.highlight-box {{
-
-    border:
-        1px solid #e5e7eb;
-
-    border-radius:10px;
-
-    padding:14px;
-
-    background:#fafafa;
-
-}}
-
-.removed-text {{
-
-    background:#fecdd3;
-
-    color:#9f1239;
-
-    text-decoration:line-through;
-
-    padding:2px 4px;
-
-    border-radius:3px;
-
-}}
-
-.added-text {{
-
-    background:#bbf7d0;
-
-    color:#166534;
-
-    padding:2px 4px;
-
-    border-radius:3px;
-
-}}
-
-.diff-box {{
-
-    margin-top:14px;
-
-    background:#f8fafc;
-
-    border:
-        1px solid #e5e7eb;
-
-    border-radius:8px;
-
-    padding:12px;
-
-    max-height:400px;
-
-    overflow:auto;
-
-}}
-
-.diff-box pre {{
-
-    white-space:pre-wrap;
-
-    word-break:break-word;
-
-    margin:0;
-
-    font-size:12px;
-
-    line-height:1.55;
-
-}}
-
-.meta {{
-
-    margin-top:10px;
-
-    color:#6b7280;
-
-    font-size:13px;
-
-}}
-
-.table-wrap {{
-
-    overflow:auto;
-
-}}
-
-table {{
-
-    width:100%;
-
-    border-collapse:collapse;
-
-    font-size:13px;
-
-}}
-
-th,
-td {{
-
-    padding:11px;
-
-    border-bottom:
-        1px solid #e5e7eb;
-
-    text-align:left;
-
-}}
-
-th {{
-
-    background:#f9fafb;
-
-    color:#6b7280;
-
-    font-size:11px;
-
-    text-transform:uppercase;
-
-}}
-
-.empty {{
-
-    text-align:center;
-
-    padding:40px;
-
-    color:#6b7280;
-
-}}
-
-@media(max-width:1000px) {{
-
-    .cards {{
-
-        grid-template-columns:
-            repeat(3,1fr);
-
-    }}
-
-    .comparison {{
-
-        grid-template-columns:1fr;
-
-    }}
-
-    .arrow {{
-
-        transform:rotate(90deg);
-
-        height:25px;
-
-    }}
-
-}}
-
-@media(max-width:600px) {{
-
-    .container {{
-
-        padding:15px;
-
-    }}
-
-    .cards {{
-
-        grid-template-columns:
-            repeat(2,1fr);
-
-    }}
-
-}}
-
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f6f8;color:#202124}
+.container{max-width:1500px;margin:auto;padding:30px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:25px}
+h1{margin:0 0 6px;font-size:32px}.subtitle{color:#6b7280;font-size:14px}
+.status{background:#e8f5e9;color:#166534;padding:9px 14px;border-radius:20px;font-size:13px;font-weight:bold}
+.cards{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin-bottom:20px}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:17px;box-shadow:0 2px 7px rgba(0,0,0,.04)}
+.card-label{font-size:11px;color:#6b7280;font-weight:bold;text-transform:uppercase}.card-number{font-size:28px;font-weight:800;margin-top:7px}
+.section{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px;margin-bottom:22px}
+.section h2{margin:0 0 15px;font-size:21px}
+.filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:15px}
+input,select{padding:10px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;font-size:14px}
+input{flex:1;min-width:280px}
+.change-card{border:1px solid #e5e7eb;border-radius:12px;margin-bottom:12px;overflow:hidden;background:#fff}
+.change-summary{padding:15px;cursor:pointer;list-style:none}.change-summary::-webkit-details-marker{display:none}
+.summary-row{display:flex;justify-content:space-between;gap:12px}.summary-left{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.badge,.priority{padding:5px 9px;border-radius:20px;font-size:10px;font-weight:bold}
+.badge.changed{background:#fff7ed;color:#9a3412}.badge.new{background:#ecfdf5;color:#047857}.badge.removed{background:#fef2f2;color:#b91c1c}.badge.failed{background:#fef3c7;color:#92400e}
+.priority-high{background:#fee2e2;color:#b91c1c}.priority-medium{background:#fef3c7;color:#92400e}.priority-low{background:#f3f4f6;color:#4b5563}
+.field{font-weight:800}.url{font-size:13px;color:#374151;word-break:break-all}
+.change-body{padding:0 15px 20px}.loading{padding:15px;color:#6b7280}.error{padding:15px;color:#b91c1c;background:#fff1f2;border-radius:8px}
+.comparison{display:grid;grid-template-columns:1fr 40px 1fr;gap:12px}.value-box{border-radius:10px;padding:14px;min-width:0}
+.old-box{background:#fff1f2;border:1px solid #fecdd3}.new-box{background:#ecfdf5;border:1px solid #a7f3d0}
+.box-title{font-size:11px;font-weight:900;margin-bottom:9px}.old-title{color:#be123c}.new-title{color:#047857}
+.value{white-space:pre-wrap;word-break:break-word;line-height:1.55;font-size:13px;max-height:450px;overflow:auto}
+.arrow{display:flex;justify-content:center;align-items:center;font-size:24px;color:#6b7280}
+.exact{margin-top:18px}.exact-title{font-size:14px;font-weight:800;margin-bottom:9px}
+.diff-box{background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:12px;max-height:400px;overflow:auto}
+.diff-box pre{white-space:pre-wrap;word-break:break-word;margin:0;font-size:12px;line-height:1.55}
+.meta{margin-top:10px;color:#6b7280;font-size:13px}.empty{text-align:center;padding:40px;color:#6b7280}
+.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:11px;border-bottom:1px solid #e5e7eb;text-align:left}th{background:#f9fafb;color:#6b7280;font-size:11px;text-transform:uppercase}
+.load-button{padding:9px 12px;border:1px solid #d1d5db;border-radius:8px;background:#fff;cursor:pointer;font-weight:700}.load-button:hover{background:#f9fafb}
+@media(max-width:1000px){.cards{grid-template-columns:repeat(3,1fr)}.comparison{grid-template-columns:1fr}.arrow{transform:rotate(90deg);height:25px}}
+@media(max-width:600px){.container{padding:15px}.cards{grid-template-columns:repeat(2,1fr)}.header{display:block}.status{display:inline-block;margin-top:10px}}
 </style>
-
 </head>
-
-
 <body>
-
-
 <div class="container">
-
-
-<div class="header">
-
-<div>
-
-<h1>
-Dashboard
-</h1>
-
-<div class="subtitle">
-
-SEO changes, page changes and crawl history
-
-</div>
-
-</div>
-
-
-<div class="status">
-
-Monitoring data loaded
-
-</div>
-
-</div>
-
+<div class="header"><div><h1>ExcelR Website Monitoring Dashboard</h1><div class="subtitle">SEO changes, page changes and crawl history</div></div><div class="status">Monitoring data loaded</div></div>
 
 <div class="cards">
-
-<div class="card">
-
-<div class="card-label">
-Pages
+<div class="card"><div class="card-label">Pages</div><div class="card-number">__PAGES__</div></div>
+<div class="card"><div class="card-label">New</div><div class="card-number">__NEW__</div></div>
+<div class="card"><div class="card-label">Changed</div><div class="card-number">__CHANGED__</div></div>
+<div class="card"><div class="card-label">Removed</div><div class="card-number">__REMOVED__</div></div>
+<div class="card"><div class="card-label">Failed</div><div class="card-number">__FAILED__</div></div>
+<div class="card"><div class="card-label">High Priority</div><div class="card-number">__HIGH__</div></div>
 </div>
-
-<div class="card-number">
-{len(pages)}
-</div>
-
-</div>
-
-
-<div class="card">
-
-<div class="card-label">
-New
-</div>
-
-<div class="card-number">
-{new_count}
-</div>
-
-</div>
-
-
-<div class="card">
-
-<div class="card-label">
-Changed
-</div>
-
-<div class="card-number">
-{changed_count}
-</div>
-
-</div>
-
-
-<div class="card">
-
-<div class="card-label">
-Removed
-</div>
-
-<div class="card-number">
-{removed}
-</div>
-
-</div>
-
-
-<div class="card">
-
-<div class="card-label">
-Failed
-</div>
-
-<div class="card-number">
-{failed}
-</div>
-
-</div>
-
-
-<div class="card">
-
-<div class="card-label">
-High Priority
-</div>
-
-<div class="card-number">
-{high_count}
-</div>
-
-</div>
-
-</div>
-
 
 <div class="section">
-
-<h2>
-Current Changes
-</h2>
-
-
+<h2>Current Changes</h2>
+<div class="subtitle" style="margin-bottom:12px">Details are loaded only when you open a change, so the dashboard stays fast even with hundreds of content changes.</div>
 <div class="filters">
-
-<input
-    id="search"
-    placeholder="Search URL, field or details..."
-    oninput="render()"
->
-
-
-<select
-    id="typeFilter"
-    onchange="render()"
->
-
-<option value="">
-All types
-</option>
-
-<option value="changed">
-Changed
-</option>
-
-<option value="new">
-New
-</option>
-
-<option value="removed">
-Removed
-</option>
-
-<option value="failed">
-Failed
-</option>
-
-</select>
-
-
-<select
-    id="fieldFilter"
-    onchange="render()"
->
-
-<option value="">
-All fields
-</option>
-
-</select>
-
+<input id="search" placeholder="Search URL, field or details...">
+<select id="typeFilter"><option value="">All types</option><option value="changed">Changed</option><option value="new">New</option><option value="removed">Removed</option><option value="failed">Failed</option></select>
+<select id="fieldFilter"><option value="">All fields</option></select>
+</div>
+<div id="changesContainer"></div>
 </div>
 
+<div class="section"><h2>Field Changes</h2><div class="cards">__FIELD_CARDS__</div></div>
 
-<div id="changesContainer">
+<div class="section"><h2>Crawl History</h2><div class="table-wrap"><table><thead><tr><th>Date</th><th>Pages</th><th>New</th><th>Changed</th><th>Removed</th><th>Failed</th><th>Duration</th></tr></thead><tbody>__HISTORY_ROWS__</tbody></table></div></div>
 
+<div class="subtitle">Last checked: __NOW__</div>
 </div>
-
-</div>
-
-
-<div class="section">
-
-<h2>
-Field Changes
-</h2>
-
-
-<div class="cards">
-
-{
-"".join(
-    f'''
-    <div class="card">
-        <div class="card-label">
-            {escape(label)}
-        </div>
-        <div class="card-number">
-            {field_counts.get(label, 0)}
-        </div>
-    </div>
-    '''
-    for _, label, _ in FIELDS
-)
-
-}
-
-</div>
-
-</div>
-
-
-<div class="section">
-
-<h2>
-Crawl History
-</h2>
-
-
-<div class="table-wrap">
-
-<table>
-
-<thead>
-
-<tr>
-
-<th>Date</th>
-<th>Pages</th>
-<th>New</th>
-<th>Changed</th>
-<th>Removed</th>
-<th>Failed</th>
-<th>Duration</th>
-
-</tr>
-
-</thead>
-
-
-<tbody>
-
-{
-"".join(
-    f'''
-    <tr>
-        <td>
-            {escape(str(item.get("checked_at","")))}
-        </td>
-
-        <td>
-            {item.get("pages",0)}
-        </td>
-
-        <td>
-            {item.get("new",0)}
-        </td>
-
-        <td>
-            {item.get("changed",0)}
-        </td>
-
-        <td>
-            {item.get("removed",0)}
-        </td>
-
-        <td>
-            {item.get("failed",0)}
-        </td>
-
-        <td>
-            {item.get("duration",0)} sec
-        </td>
-    </tr>
-    '''
-    for item in reversed(history)
-)
-
-}
-
-</tbody>
-
-</table>
-
-</div>
-
-</div>
-
-
-<div class="subtitle">
-
-Last checked:
-{now}
-
-</div>
-
-
-</div>
-
 
 <script>
-
-
-const changes =
-{changes_json};
-
-
-function escapeHTML(value) {{
-
-    return String(
-        value ?? ""
-    ).replace(
-        /[&<>"']/g,
-        function(char) {{
-
-            const map = {{
-
-                "&":"&amp;",
-                "<":"&lt;",
-                ">":"&gt;",
-                '"':"&quot;",
-                "'":"&#039;"
-
-            }};
-
-            return map[char];
-
-        }}
-    );
-
-}}
-
-
-function formatValue(value) {{
-
-    if(
-        value !== null &&
-        typeof value === "object"
-    ) {{
-
-        return JSON.stringify(
-            value,
-            null,
-            2
-        );
-
-    }}
-
-    return String(
-        value ?? ""
-    );
-
-}}
-
-
-function tokenize(text) {{
-
-    return String(
-        text || ""
-    ).split(
-        /(\\s+|[,.!?;:()[\\]{{}}"'`]+)/g
-    ).filter(
-        function(item) {{
-
-            return item !== "";
-
-        }}
-    );
-
-}}
-
-
-function wordDiff(
-    oldText,
-    newText
-) {{
-
-    const oldTokens =
-        tokenize(oldText);
-
-    const newTokens =
-        tokenize(newText);
-
-
-    const matrix =
-        Array(
-            oldTokens.length + 1
-        )
-        .fill(null)
-        .map(
-            function() {{
-
-                return Array(
-                    newTokens.length + 1
-                ).fill(0);
-
-            }}
-        );
-
-
-    for(
-        let i =
-            oldTokens.length - 1;
-
-        i >= 0;
-
-        i--
-    ) {{
-
-        for(
-            let j =
-                newTokens.length - 1;
-
-            j >= 0;
-
-            j--
-        ) {{
-
-            if(
-                oldTokens[i] ===
-                newTokens[j]
-            ) {{
-
-                matrix[i][j] =
-                    matrix[i+1][j+1] + 1;
-
-            }}
-
-            else {{
-
-                matrix[i][j] =
-                    Math.max(
-                        matrix[i+1][j],
-                        matrix[i][j+1]
-                    );
-
-            }}
-
-        }}
-
-    }}
-
-
-    let i = 0;
-    let j = 0;
-
-    const removed = [];
-    const added = [];
-
-
-    while(
-        i < oldTokens.length &&
-        j < newTokens.length
-    ) {{
-
-        if(
-            oldTokens[i] ===
-            newTokens[j]
-        ) {{
-
-            i++;
-            j++;
-
-        }}
-
-        else if(
-            matrix[i+1][j] >=
-            matrix[i][j+1]
-        ) {{
-
-            removed.push(
-                oldTokens[i]
-            );
-
-            i++;
-
-        }}
-
-        else {{
-
-            added.push(
-                newTokens[j]
-            );
-
-            j++;
-
-        }}
-
-    }}
-
-
-    while(
-        i < oldTokens.length
-    ) {{
-
-        removed.push(
-            oldTokens[i]
-        );
-
-        i++;
-
-    }}
-
-
-    while(
-        j < newTokens.length
-    ) {{
-
-        added.push(
-            newTokens[j]
-        );
-
-        j++;
-
-    }}
-
-
-    return {{
-        removed:
-            removed.join(""),
-
-        added:
-            added.join("")
-    }};
-
-}}
-
-
-function highlightedDifference(
-    before,
-    after
-) {{
-
-    const diff =
-        wordDiff(
-            before,
-            after
-        );
-
-
-    let html = "";
-
-
-    if(diff.removed) {{
-
-        html += `
-
-        <div style="margin-bottom:12px">
-
-            <b style="color:#be123c">
-
-                🔴 REMOVED
-
-            </b>
-
-            <div style="margin-top:6px">
-
-                <span
-                    class="removed-text"
-                >
-
-                    ${{escapeHTML(
-                        diff.removed
-                    )}}
-
-                </span>
-
-            </div>
-
-        </div>
-
-        `;
-
-    }}
-
-
-    if(diff.added) {{
-
-        html += `
-
-        <div>
-
-            <b style="color:#047857">
-
-                🟢 ADDED
-
-            </b>
-
-            <div style="margin-top:6px">
-
-                <span
-                    class="added-text"
-                >
-
-                    ${{escapeHTML(
-                        diff.added
-                    )}}
-
-                </span>
-
-            </div>
-
-        </div>
-
-        `;
-
-    }}
-
-
-    if(!html) {{
-
-        html =
-            "No textual difference detected.";
-
-    }}
-
-
-    return html;
-
-}}
-
-
-function badge(
-    type
-) {{
-
-    return `
-
-        <span
-            class="badge ${{type}}"
-        >
-
-            ${{escapeHTML(
-                type.toUpperCase()
-            )}}
-
-        </span>
-
-    `;
-
-}}
-
-
-function priority(
-    value
-) {{
-
-    return `
-
-        <span
-            class="priority-${{
-                escapeHTML(
-                    value || "low"
-                )
-            }}"
-        >
-
-            ${{escapeHTML(
-                (value || "low")
-                .toUpperCase()
-            )}}
-
-        </span>
-
-    `;
-
-}}
-
-
-function render() {{
-
-    const search =
-        document
-        .getElementById("search")
-        .value
-        .toLowerCase();
-
-
-    const type =
-        document
-        .getElementById("typeFilter")
-        .value;
-
-
-    const field =
-        document
-        .getElementById("fieldFilter")
-        .value;
-
-
-    const filtered =
-        changes.filter(
-            function(item) {{
-
-                const text = (
-
-                    item.url +
-                    " " +
-                    item.field +
-                    " " +
-                    item.details +
-                    " " +
-                    formatValue(
-                        item.before
-                    ) +
-                    " " +
-                    formatValue(
-                        item.after
-                    )
-
-                ).toLowerCase();
-
-
-                return (
-
-                    (!search ||
-                     text.includes(search))
-
-                    &&
-
-                    (!type ||
-                     item.type === type)
-
-                    &&
-
-                    (!field ||
-                     item.field === field)
-
-                );
-
-            }}
-        );
-
-
-    const container =
-        document.getElementById(
-            "changesContainer"
-        );
-
-
-    if(
-        filtered.length === 0
-    ) {{
-
-        container.innerHTML = `
-
-            <div class="empty">
-
-                No matching changes detected.
-
-            </div>
-
-        `;
-
+const changes = __CHANGES_JSON__;
+const fieldNames = __FIELDS_JSON__;
+
+function escapeHTML(value){
+    return String(value ?? '').replace(/[&<>"']/g, function(char){
+        const map={'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'};
+        return map[char];
+    });
+}
+
+function formatValue(value){
+    if(value !== null && typeof value === 'object') return JSON.stringify(value,null,2);
+    return String(value ?? '');
+}
+
+function badge(type){return '<span class="badge '+escapeHTML(type)+'">'+escapeHTML(type.toUpperCase())+'</span>';}
+function priority(value){const v=value||'low';return '<span class="priority priority-'+escapeHTML(v)+'">'+escapeHTML(v.toUpperCase())+'</span>';}
+
+async function loadDetails(card,item){
+    if(!item.detail_file){
+        card.querySelector('.change-body').innerHTML='<div class="meta">No detailed before/after data for this change.</div>';
         return;
-
-    }}
-
-
-    container.innerHTML =
-        filtered.map(
-            function(item) {{
-
-                let body = "";
-
-
-                if(
-                    item.type ===
-                    "changed"
-                ) {{
-
-                    body = `
-
-                        <div
-                            class="comparison"
-                        >
-
-                            <div
-                                class="value-box old-box"
-                            >
-
-                                <div
-                                    class="box-title old-title"
-                                >
-
-                                    🔴 OLD / BEFORE
-
-                                </div>
-
-                                <div class="value">
-
-                                    ${{escapeHTML(
-                                        formatValue(
-                                            item.before
-                                        )
-                                    )}}
-
-                                </div>
-
-                            </div>
-
-
-                            <div class="arrow">
-
-                                →
-
-                            </div>
-
-
-                            <div
-                                class="value-box new-box"
-                            >
-
-                                <div
-                                    class="box-title new-title"
-                                >
-
-                                    🟢 NEW / AFTER
-
-                                </div>
-
-                                <div class="value">
-
-                                    ${{escapeHTML(
-                                        formatValue(
-                                            item.after
-                                        )
-                                    )}}
-
-                                </div>
-
-                            </div>
-
-                        </div>
-
-
-                        ${{
-                            item.field ===
-                            "Content"
-
-                            ?
-
-                            `
-
-                            <div class="exact">
-
-                                <div
-                                    class="exact-title"
-                                >
-
-                                    📍 EXACT CONTENT CHANGES
-
-                                </div>
-
-                                <div
-                                    class="highlight-box"
-                                >
-
-                                    ${{highlightedDifference(
-                                        item.before,
-                                        item.after
-                                    )}}
-
-                                </div>
-
-                            </div>
-
-                            `
-
-                            :
-
-                            `
-
-                            <div class="exact">
-
-                                <div
-                                    class="exact-title"
-                                >
-
-                                    📍 EXACT CHANGE
-
-                                </div>
-
-                                <div
-                                    class="highlight-box"
-                                >
-
-                                    Compare the OLD and NEW values above.
-
-                                </div>
-
-                            </div>
-
-                            `
-                        }}
-
-
-                        ${{
-                            item.diff
-
-                            ?
-
-                            `
-
-                            <div
-                                class="diff-box"
-                            >
-
-                                <b>
-                                    Technical Diff
-                                </b>
-
-                                <pre>
-
-${{escapeHTML(
-    item.diff
-)}}
-
-                                </pre>
-
-                            </div>
-
-                            `
-
-                            :
-
-                            ""
-
-                        }}
-
-
-                        <div class="meta">
-
-                            ${{escapeHTML(
-                                item.details || ""
-                            )}}
-
-                        </div>
-
-                    `;
-
-                }}
-
-
-                else if(
-                    item.type ===
-                    "new"
-                ) {{
-
-                    body = `
-
-                        <div class="meta">
-
-                            🟢 New page discovered.
-
-                        </div>
-
-                    `;
-
-                }}
-
-
-                else if(
-                    item.type ===
-                    "removed"
-                ) {{
-
-                    body = `
-
-                        <div class="meta">
-
-                            🔴 Page returned 404/410.
-
-                        </div>
-
-                    `;
-
-                }}
-
-
-                else {{
-
-                    body = `
-
-                        <div class="meta">
-
-                            ⚠️ ${{escapeHTML(
-                                item.details || ""
-                            )}}
-
-                        </div>
-
-                    `;
-
-                }}
-
-
-                return `
-
-                    <details
-                        class="change-card"
-                    >
-
-                        <summary
-                            class="change-summary"
-                        >
-
-                            <div
-                                class="summary-row"
-                            >
-
-                                <div
-                                    class="summary-left"
-                                >
-
-                                    ${{badge(
-                                        item.type
-                                    )}}
-
-                                    <span
-                                        class="field"
-                                    >
-
-                                        ${{escapeHTML(
-                                            item.field
-                                        )}}
-
-                                    </span>
-
-                                    <span
-                                        class="url"
-                                    >
-
-                                        ${{escapeHTML(
-                                            item.url
-                                        )}}
-
-                                    </span>
-
-                                </div>
-
-
-                                ${{priority(
-                                    item.priority
-                                )}}
-
-                            </div>
-
-                        </summary>
-
-
-                        <div
-                            class="change-body"
-                        >
-
-                            ${{body}}
-
-                        </div>
-
-                    </details>
-
-                `;
-
-            }}
-        )
-        .join("");
-
-}}
-
-
-function buildFieldFilter() {{
-
-    const select =
-        document.getElementById(
-            "fieldFilter"
-        );
-
-
-    const fields =
-        [
-            ...new Set(
-                changes
-                .map(
-                    item => item.field
-                )
-                .filter(Boolean)
-            )
-        ]
-        .sort();
-
-
-    fields.forEach(
-        function(field) {{
-
-            const option =
-                document.createElement(
-                    "option"
-                );
-
-            option.value =
-                field;
-
-            option.textContent =
-                field;
-
-            select.appendChild(
-                option
-            );
-
-        }}
-    );
-
-}}
-
-
+    }
+
+    const body=card.querySelector('.change-body');
+    if(item.loaded){body.innerHTML=item.html;return;}
+    body.innerHTML='<div class="loading">Loading exact before/after details...</div>';
+
+    try{
+        const response=await fetch('data/diff_details/'+encodeURIComponent(item.detail_file),{cache:'no-store'});
+        if(!response.ok) throw new Error('HTTP '+response.status);
+        const data=await response.json();
+        const record=(data.records||[]).find(r=>r.field===item.field) || (data.records||[])[0];
+
+        if(!record){
+            body.innerHTML='<div class="meta">No detailed record found.</div>';
+            return;
+        }
+
+        let html='';
+        html+='<div class="comparison">';
+        html+='<div class="value-box old-box"><div class="box-title old-title">🔴 OLD / BEFORE</div><div class="value">'+escapeHTML(formatValue(record.before))+'</div></div>';
+        html+='<div class="arrow">→</div>';
+        html+='<div class="value-box new-box"><div class="box-title new-title">🟢 NEW / AFTER</div><div class="value">'+escapeHTML(formatValue(record.after))+'</div></div>';
+        html+='</div>';
+
+        if(record.diff){
+            html+='<div class="exact"><div class="exact-title">📍 EXACT CHANGE</div><div class="diff-box"><pre>'+escapeHTML(record.diff)+'</pre></div></div>';
+        }
+
+        html+='<div class="meta">'+escapeHTML(item.details||'')+'</div>';
+        item.html=html;
+        item.loaded=true;
+        body.innerHTML=html;
+    }catch(error){
+        body.innerHTML='<div class="error">Could not load change details: '+escapeHTML(error.message)+'</div>';
+    }
+}
+
+function render(){
+    const search=document.getElementById('search').value.toLowerCase().trim();
+    const type=document.getElementById('typeFilter').value;
+    const field=document.getElementById('fieldFilter').value;
+
+    const filtered=changes.filter(function(item){
+        const text=(item.url+' '+item.field+' '+item.details).toLowerCase();
+        return (!search || text.includes(search)) && (!type || item.type===type) && (!field || item.field===field);
+    });
+
+    const container=document.getElementById('changesContainer');
+    if(!filtered.length){container.innerHTML='<div class="empty">No matching changes detected.</div>';return;}
+
+    container.innerHTML=filtered.map(function(item,index){
+        const id='change_'+index;
+        let body='';
+        if(item.type==='changed'){
+            body='<div class="change-body"><button class="load-button" data-id="'+id+'">Load OLD / NEW details</button></div>';
+        }else if(item.type==='new'){
+            body='<div class="change-body"><div class="meta">🟢 New page discovered.</div></div>';
+        }else if(item.type==='removed'){
+            body='<div class="change-body"><div class="meta">🔴 Page returned 404/410.</div></div>';
+        }else{
+            body='<div class="change-body"><div class="meta">⚠️ '+escapeHTML(item.details||'')+'</div></div>';
+        }
+        return '<details class="change-card" data-index="'+changes.indexOf(item)+'"><summary class="change-summary"><div class="summary-row"><div class="summary-left">'+badge(item.type)+' <span class="field">'+escapeHTML(item.field)+'</span> <span class="url">'+escapeHTML(item.url)+'</span></div>'+priority(item.priority)+'</div></summary>'+body+'</details>';
+    }).join('');
+
+    container.querySelectorAll('.load-button').forEach(function(button){
+        button.addEventListener('click',function(event){
+            event.preventDefault();
+            const details=button.closest('details');
+            const itemIndex=Number(details.dataset.index);
+            loadDetails(details,changes[itemIndex]);
+        });
+    });
+}
+
+function buildFieldFilter(){
+    const select=document.getElementById('fieldFilter');
+    const fields=[...new Set(changes.map(item=>item.field).filter(Boolean))].sort();
+    fields.forEach(function(field){const option=document.createElement('option');option.value=field;option.textContent=field;select.appendChild(option);});
+}
+
+document.getElementById('search').addEventListener('input',render);
+document.getElementById('typeFilter').addEventListener('change',render);
+document.getElementById('fieldFilter').addEventListener('change',render);
 buildFieldFilter();
-
 render();
-
 </script>
-
-
 </body>
-
 </html>
 """
 
+    html = html.replace("__PAGES__", str(len(pages)))
+    html = html.replace("__NEW__", str(new_count))
+    html = html.replace("__CHANGED__", str(changed_count))
+    html = html.replace("__REMOVED__", str(removed))
+    html = html.replace("__FAILED__", str(failed))
+    html = html.replace("__HIGH__", str(high_count))
+    html = html.replace("__FIELD_CARDS__", field_cards)
+    html = html.replace("__HISTORY_ROWS__", history_rows)
+    html = html.replace("__NOW__", escape(now))
+    html = html.replace("__CHANGES_JSON__", changes_json)
+    html = html.replace("__FIELDS_JSON__", fields_json)
 
-    DASHBOARD_FILE.write_text(
-        html,
-        encoding="utf-8"
-    )
+    DASHBOARD_FILE.write_text(html, encoding="utf-8")
 
 
 # ============================================================
