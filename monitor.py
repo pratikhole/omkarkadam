@@ -1570,8 +1570,13 @@ def compare(
     # EXISTING PAGES
     # --------------------------------------------------------
 
+    # IMPORTANT: failed crawls must never be compared as if the page
+    # returned empty content/metadata. Failed pages are preserved in the
+    # baseline, but they are not valid "after" snapshots.
+    comparable_urls = (old_urls & new_urls) - set(failed)
+
     for url in sorted(
-        old_urls & new_urls
+        comparable_urls
     ):
 
         before = old[url]
@@ -1952,7 +1957,7 @@ def make_dashboard(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dashboard</title>
+<title>ExcelR Website Monitoring Dashboard</title>
 <style>
 *{box-sizing:border-box}
 body{margin:0;font-family:Arial,Helvetica,sans-serif;background:#f4f6f8;color:#202124}
@@ -1993,7 +1998,7 @@ input{flex:1;min-width:280px}
 </head>
 <body>
 <div class="container">
-<div class="header"><div><h1>Dashboard</h1><div class="subtitle">SEO changes, page changes and crawl history</div></div><div class="status">Monitoring data loaded</div></div>
+<div class="header"><div><h1>ExcelR Website Monitoring Dashboard</h1><div class="subtitle">SEO changes, page changes and crawl history</div></div><div class="status">Monitoring data loaded</div></div>
 
 <div class="cards">
 <div class="card"><div class="card-label">Pages</div><div class="card-number">__PAGES__</div></div>
