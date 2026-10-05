@@ -1,8 +1,7 @@
 name: Daily Site Check
 
 on:
-  schedule:
-    - cron: "5 3 * * *"
+    
   workflow_dispatch:
 
 permissions:
